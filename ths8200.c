@@ -15,9 +15,9 @@ int i2c_burst_read(const struct device *dev, uint8_t addr,
 /**
  * @brief Read all THS8200 registers into ths8200_regs_t.
  */
-static inline int ths8200_read_regs(const struct device *dev,
-                                    uint8_t addr,
-                                    ths8200_regs_t *r)
+int ths8200_read_regs(const struct device *dev,
+                      uint8_t addr,
+                      ths8200_regs_t *r)
 {
     uint8_t buf[THS8200_REG_COUNT];
     int rc = i2c_burst_read(dev, addr, 0x00, buf, sizeof(buf));
@@ -178,9 +178,9 @@ static inline int ths8200_read_regs(const struct device *dev,
  * @brief Write all THS8200 registers from ths8200_regs_t.
  * (Implementation analogous to read, omitted for brevity)
  */
-static inline int ths8200_write_regs(const struct device *dev,
-                                     uint8_t addr,
-                                     const ths8200_regs_t *r)
+int ths8200_write_regs(const struct device *dev,
+                       uint8_t addr,
+                       const ths8200_regs_t *r)
 {
     uint8_t buf[THS8200_REG_COUNT] = {0};
 
@@ -368,7 +368,7 @@ void ths8200_print_regs(const ths8200_regs_t *r)
 printf("CSC:\n");
 #define PR_COEF(name) \
     printf(" %s = %.3f\n", #name, \
-           r->csc.name##_int + r->csc.name##_frac / 256.0f)
+           r->csc.name##_int + r->csc.name##_frac / 256.0)
 PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
 PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
 PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
