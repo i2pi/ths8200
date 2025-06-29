@@ -124,7 +124,7 @@ int ths8200_read_regs(const struct device *dev,
     r->csm.shift_cb   = buf[0x48];
     r->csm.shift_cr   = buf[0x49];
     r->csm.mult_gy = (((buf[0x4A] >> 5) & 0x07) << 8) | buf[0x4C];
-    r->csm.mult_cb = (((buf[0x4B] >> 4) & 0x07) << 8) | buf[0x4D];
+    r->csm.mult_cb = (((buf[0x4B] >> 5) & 0x07) << 8) | buf[0x4D];
     r->csm.mult_cr = ((buf[0x4B] & 0x07) << 8) | buf[0x4E];
     r->csm.csm_ctrl   = buf[0x4F];
 
@@ -289,7 +289,7 @@ int ths8200_write_regs(const struct device *dev,
     buf[0x48] = r->csm.shift_cb;
     buf[0x49] = r->csm.shift_cr;
     buf[0x4A] = ((r->csm.mult_gy >> 8) & 0x07) << 5;
-    buf[0x4B] = (((r->csm.mult_cb >> 8) & 0x07) << 4) |
+    buf[0x4B] = (((r->csm.mult_cb >> 8) & 0x07) << 5) |
                 ((r->csm.mult_cr >> 8) & 0x07);
     buf[0x4C] = r->csm.mult_gy & 0xFF;
     buf[0x4D] = r->csm.mult_cb & 0xFF;
