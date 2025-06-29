@@ -18,7 +18,7 @@ void ths8200_set_defaults(ths8200_regs_t *r)
     r->system.ctl.arst_func_n = true;
 
     /* Data path control: default input format selector */
-    r->datapath.format = 0x03; /* data_dman_cntl = 011b */
+    r->datapath.dman_cntl = 0x03; /* data_dman_cntl = 011b */
 
     /* Color Space Conversion defaults (Q2.8 coefficients) */
     r->csc.r2r_int  = 0x00; r->csc.r2r_frac  = 0xDA;
@@ -46,12 +46,12 @@ void ths8200_set_defaults(ths8200_regs_t *r)
     r->dtg2.hdly      = 0x20;
     r->dtg2.vlength1  = 0x03;
     r->dtg2.vdly2     = 0x3FF;
-    r->dtg2.hsind     = 0x3D;
-    r->dtg2.vsind     = 0x03;
+    r->dtg2.hs_in_dly = 0x3D;
+    r->dtg2.vs_in_dly = 0x03;
     r->dtg2.ctrl.rgb_mode  = true;
-    r->dtg2.ctrl.vs_out    = true;
-    r->dtg2.ctrl.hs_out    = true;
+    r->dtg2.ctrl.vsout_pol = true;
+    r->dtg2.ctrl.hsout_pol = true;
     r->dtg2.ctrl.fid_pol   = true;
-    r->dtg2.ctrl.vs_in     = true;
-    r->dtg2.ctrl.hs_in     = true;
+    r->dtg2.ctrl.vs_pol    = true;
+    r->dtg2.ctrl.hs_pol    = true;
 }

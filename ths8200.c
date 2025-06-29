@@ -27,13 +27,14 @@ int ths8200_read_regs(const struct device *dev,
     /* System */
     r->system.version = buf[0x02];
     t = buf[0x03];
-    r->system.ctl.vesa_clk    = (t >> 7) & 1;
-    r->system.ctl.dll_bypass  = (t >> 6) & 1;
-    r->system.ctl.dac_pwdn    = (t >> 5) & 1;
-    r->system.ctl.chip_pwdn   = (t >> 4) & 1;
-    r->system.ctl.chip_msbars = (t >> 3) & 1;
-    r->system.ctl.sel_func_n  = (t >> 2) & 1;
-    r->system.ctl.arst_func_n = (t >> 1) & 1;
+    r->system.ctl.vesa_clk      = (t >> 7) & 1;
+    r->system.ctl.dll_bypass    = (t >> 6) & 1;
+    r->system.ctl.vesa_colorbars= (t >> 5) & 1;
+    r->system.ctl.dll_freq_sel  = (t >> 4) & 1;
+    r->system.ctl.dac_pwdn      = (t >> 3) & 1;
+    r->system.ctl.chip_pwdn     = (t >> 2) & 1;
+    r->system.ctl.chip_ms       = (t >> 1) & 1;
+    r->system.ctl.arst_func_n   =  t       & 1;
     
     /* CSC Q2.8 coefficients & offsets */
     #define RD_COEF(msb, lsb, i_part, f_part) \
@@ -66,12 +67,12 @@ int ths8200_read_regs(const struct device *dev,
 
     /* Data Path */
     t = buf[0x1C];
-    r->datapath.clk656 = (t >> 7) & 1;
-    r->datapath.fsadj  = (t >> 6) & 1;
-    r->datapath.ifir12 = (t >> 5) & 1;
-    r->datapath.ifir35 = (t >> 4) & 1;
-    r->datapath.tri656 = (t >> 3) & 1;
-    r->datapath.format =  t       & 0x07;
+    r->datapath.clk656_on   = (t >> 7) & 1;
+    r->datapath.fsadj       = (t >> 6) & 1;
+    r->datapath.ifir12_bypass = (t >> 5) & 1;
+    r->datapath.ifir35_bypass = (t >> 4) & 1;
+    r->datapath.tristate656 = (t >> 3) & 1;
+    r->datapath.dman_cntl   =  t       & 0x07;
 
     /* DTG1 Part1 */
     #define RD_SPLIT(lsb, msb_reg, msb_shift, field) \
@@ -108,7 +109,7 @@ int ths8200_read_regs(const struct device *dev,
 
     /* DAC */
     t = buf[0x3D];
-    r->dac.i2c_ctrl = (t>>6)&1;
+    r->dac.i2c_cntl = (t>>6)&1;
     r->dac.dac1     = (((t>>4)&0x03)<<8)|buf[0x3E];
     r->dac.dac2     = (((t>>2)&0x03)<<8)|buf[0x3F];
     r->dac.dac3     = (((t>>0)&0x03)<<8)|buf[0x40];
@@ -145,8 +146,8 @@ int ths8200_read_regs(const struct device *dev,
     r->dtg2.vdly1     = (((buf[0x74]&0x07)<<8)|buf[0x75]);
     r->dtg2.vlength2 = (((buf[0x77]&0x03)<<8)|buf[0x76]);
     r->dtg2.vdly2     = (((buf[0x77]>>6)<<8)|buf[0x78]);
-    r->dtg2.hsind    = (((buf[0x79]&0x1F)<<8)|buf[0x7A]);
-    r->dtg2.vsind    = (((buf[0x7B]&0x07)<<8)|buf[0x7C]);
+    r->dtg2.hs_in_dly = (((buf[0x79]&0x1F)<<8)|buf[0x7A]);
+    r->dtg2.vs_in_dly = (((buf[0x7B]&0x07)<<8)|buf[0x7C]);
     r->dtg2.pixel_cnt= ((buf[0x7D]<<8)|buf[0x7E]);
     t=buf[0x7F];
     r->dtg2.ctrl.ip_fmt    = (t>>7)&1;
@@ -155,11 +156,11 @@ int ths8200_read_regs(const struct device *dev,
     r->dtg2.ctrl.fid_de    = (t>>7)&1;
     r->dtg2.ctrl.rgb_mode  = (t>>6)&1;
     r->dtg2.ctrl.emb_timing= (t>>5)&1;
-    r->dtg2.ctrl.vs_out    = (t>>4)&1;
-    r->dtg2.ctrl.hs_out    = (t>>3)&1;
+    r->dtg2.ctrl.vsout_pol = (t>>4)&1;
+    r->dtg2.ctrl.hsout_pol = (t>>3)&1;
     r->dtg2.ctrl.fid_pol   = (t>>2)&1;
-    r->dtg2.ctrl.vs_in     = (t>>1)&1;
-    r->dtg2.ctrl.hs_in     =  t    &1;
+    r->dtg2.ctrl.vs_pol    = (t>>1)&1;
+    r->dtg2.ctrl.hs_pol    =  t    &1;
 
     /* CGMS */
     t = buf[0x83];
@@ -186,13 +187,14 @@ int ths8200_write_regs(const struct device *dev,
 
     /* System control */
     buf[0x02] = r->system.version;
-    buf[0x03] = (r->system.ctl.vesa_clk   ? 0x80 : 0) |
-                (r->system.ctl.dll_bypass ? 0x40 : 0) |
-                (r->system.ctl.dac_pwdn   ? 0x20 : 0) |
-                (r->system.ctl.chip_pwdn  ? 0x10 : 0) |
-                (r->system.ctl.chip_msbars? 0x08 : 0) |
-                (r->system.ctl.sel_func_n ? 0x04 : 0) |
-                (r->system.ctl.arst_func_n? 0x02 : 0);
+    buf[0x03] = (r->system.ctl.vesa_clk      ? 0x80 : 0) |
+                (r->system.ctl.dll_bypass    ? 0x40 : 0) |
+                (r->system.ctl.vesa_colorbars? 0x20 : 0) |
+                (r->system.ctl.dll_freq_sel  ? 0x10 : 0) |
+                (r->system.ctl.dac_pwdn      ? 0x08 : 0) |
+                (r->system.ctl.chip_pwdn     ? 0x04 : 0) |
+                (r->system.ctl.chip_ms       ? 0x02 : 0) |
+                (r->system.ctl.arst_func_n   ? 0x01 : 0);
 
     /* CSC coefficients and offsets (Q2.8) */
 #define WR_COEF(msb, lsb, i_part, f_part) \
@@ -221,12 +223,12 @@ int ths8200_write_regs(const struct device *dev,
                 (r->test.slowramp ? 0x01 : 0);
 
     /* Data path */
-    buf[0x1C] = (r->datapath.clk656 ? 0x80 : 0) |
-                (r->datapath.fsadj  ? 0x40 : 0) |
-                (r->datapath.ifir12 ? 0x20 : 0) |
-                (r->datapath.ifir35 ? 0x10 : 0) |
-                (r->datapath.tri656 ? 0x08 : 0) |
-                (r->datapath.format & 0x07);
+    buf[0x1C] = (r->datapath.clk656_on   ? 0x80 : 0) |
+                (r->datapath.fsadj       ? 0x40 : 0) |
+                (r->datapath.ifir12_bypass ? 0x20 : 0) |
+                (r->datapath.ifir35_bypass ? 0x10 : 0) |
+                (r->datapath.tristate656  ? 0x08 : 0) |
+                (r->datapath.dman_cntl    & 0x07);
 
     /* DTG1 values */
     buf[0x1D] = r->dtg1.y_blank & 0xFF;
@@ -270,7 +272,7 @@ int ths8200_write_regs(const struct device *dev,
     buf[0x3C] = r->dtg1.cbar_size;
 
     /* DAC control */
-    buf[0x3D] = (r->dac.i2c_ctrl?0x40:0) |
+    buf[0x3D] = (r->dac.i2c_cntl?0x40:0) |
                 ((r->dac.dac1>>8)&0x03)<<4 |
                 ((r->dac.dac2>>8)&0x03)<<2 |
                 ((r->dac.dac3>>8)&0x03);
@@ -321,10 +323,10 @@ int ths8200_write_regs(const struct device *dev,
     buf[0x77] = (((r->dtg2.vdly2>>8)&0x03) << 6) |
                 ((r->dtg2.vlength2>>8)&0x03);
     buf[0x78] = r->dtg2.vdly2 & 0xFF;
-    buf[0x79] = (r->dtg2.hsind>>8) & 0x1F;
-    buf[0x7A] = r->dtg2.hsind & 0xFF;
-    buf[0x7B] = (r->dtg2.vsind>>8) & 0x07;
-    buf[0x7C] = r->dtg2.vsind & 0xFF;
+    buf[0x79] = (r->dtg2.hs_in_dly>>8) & 0x1F;
+    buf[0x7A] = r->dtg2.hs_in_dly & 0xFF;
+    buf[0x7B] = (r->dtg2.vs_in_dly>>8) & 0x07;
+    buf[0x7C] = r->dtg2.vs_in_dly & 0xFF;
     buf[0x7D] = (r->dtg2.pixel_cnt>>8) & 0xFF;
     buf[0x7E] = r->dtg2.pixel_cnt & 0xFF;
     buf[0x7F] = (r->dtg2.ctrl.ip_fmt ? 0x80 : 0) |
@@ -333,11 +335,11 @@ int ths8200_write_regs(const struct device *dev,
     buf[0x82] = (r->dtg2.ctrl.fid_de   ? 0x80 : 0) |
                 (r->dtg2.ctrl.rgb_mode ? 0x40 : 0) |
                 (r->dtg2.ctrl.emb_timing?0x20 : 0) |
-                (r->dtg2.ctrl.vs_out   ? 0x10 : 0) |
-                (r->dtg2.ctrl.hs_out   ? 0x08 : 0) |
+                (r->dtg2.ctrl.vsout_pol? 0x10 : 0) |
+                (r->dtg2.ctrl.hsout_pol? 0x08 : 0) |
                 (r->dtg2.ctrl.fid_pol  ? 0x04 : 0) |
-                (r->dtg2.ctrl.vs_in    ? 0x02 : 0) |
-                (r->dtg2.ctrl.hs_in    ? 0x01 : 0);
+                (r->dtg2.ctrl.vs_pol   ? 0x02 : 0) |
+                (r->dtg2.ctrl.hs_pol   ? 0x01 : 0);
 
     /* CGMS control */
     buf[0x83] = (r->cgms.header & 0x3F);
@@ -362,10 +364,14 @@ static inline const char *boolstr(bool v) { return v ? "true" : "false"; }
 void ths8200_print_regs(const ths8200_regs_t *r)
 {
     printf("System.version: 0x%02X\n", r->system.version);
-    printf(" System ctl: vesa_clk=%s dll_bypass=%s dac_pwdn=%s chip_pwdn=%s chip_msbars=%s sel_func_n=%s arst_func_n=%s\n",
-           boolstr(r->system.ctl.vesa_clk), boolstr(r->system.ctl.dll_bypass),
-           boolstr(r->system.ctl.dac_pwdn), boolstr(r->system.ctl.chip_pwdn),
-           boolstr(r->system.ctl.chip_msbars), boolstr(r->system.ctl.sel_func_n),
+    printf(" System ctl: vesa_clk=%s dll_bypass=%s vesa_colorbars=%s dll_freq_sel=%s dac_pwdn=%s chip_pwdn=%s chip_ms=%s arst_func_n=%s\n",
+           boolstr(r->system.ctl.vesa_clk),
+           boolstr(r->system.ctl.dll_bypass),
+           boolstr(r->system.ctl.vesa_colorbars),
+           boolstr(r->system.ctl.dll_freq_sel),
+           boolstr(r->system.ctl.dac_pwdn),
+           boolstr(r->system.ctl.chip_pwdn),
+           boolstr(r->system.ctl.chip_ms),
            boolstr(r->system.ctl.arst_func_n));
 
 printf("CSC:\n");
@@ -384,10 +390,10 @@ PR_COEF(yoff); PR_COEF(cboff);
            boolstr(r->test.digbypass), boolstr(r->test.force_off),
            r->test.ydelay, boolstr(r->test.fastramp), boolstr(r->test.slowramp));
 
-    printf("Datapath: clk656=%s fsadj=%s ifir12=%s ifir35=%s tri656=%s format=0x%X\n",
-           boolstr(r->datapath.clk656), boolstr(r->datapath.fsadj),
-           boolstr(r->datapath.ifir12), boolstr(r->datapath.ifir35),
-           boolstr(r->datapath.tri656), r->datapath.format);
+    printf("Datapath: clk656_on=%s fsadj=%s ifir12_bypass=%s ifir35_bypass=%s tristate656=%s dman_cntl=0x%X\n",
+           boolstr(r->datapath.clk656_on), boolstr(r->datapath.fsadj),
+           boolstr(r->datapath.ifir12_bypass), boolstr(r->datapath.ifir35_bypass),
+           boolstr(r->datapath.tristate656), r->datapath.dman_cntl);
 
     printf("DTG1:\n");
     printf(" y_blank=%u y_sync_lo=%u y_sync_hi=%u\n",
@@ -406,8 +412,8 @@ PR_COEF(yoff); PR_COEF(cboff);
     printf(" frame_size=%u field_size=%u cbar_size=%u\n",
            r->dtg1.frame_size, r->dtg1.field_size, r->dtg1.cbar_size);
 
-    printf("DAC: i2c_ctrl=%s dac1=%u dac2=%u dac3=%u\n",
-           boolstr(r->dac.i2c_ctrl), r->dac.dac1, r->dac.dac2, r->dac.dac3);
+    printf("DAC: i2c_cntl=%s dac1=%u dac2=%u dac3=%u\n",
+           boolstr(r->dac.i2c_cntl), r->dac.dac1, r->dac.dac2, r->dac.dac3);
 
     printf("CSM:\n");
     printf(" clip_gy_lo=%u clip_cb_lo=%u clip_cr_lo=%u\n", r->csm.clip_gy_lo, r->csm.clip_cb_lo, r->csm.clip_cr_lo);
@@ -426,14 +432,14 @@ PR_COEF(yoff); PR_COEF(cboff);
     printf("DTG2 timing: hlength=%u hdly=%u vlength1=%u vdly1=%u vlength2=%u vdly2=%u\n",
            r->dtg2.hlength, r->dtg2.hdly, r->dtg2.vlength1, r->dtg2.vdly1,
            r->dtg2.vlength2, r->dtg2.vdly2);
-    printf(" hsind=%u vsind=%u pixel_cnt=%u\n",
-           r->dtg2.hsind, r->dtg2.vsind, r->dtg2.pixel_cnt);
-    printf(" ip_fmt=%s line_cnt=%u fid_de=%s rgb_mode=%s emb_timing=%s vs_out=%s hs_out=%s fid_pol=%s vs_in=%s hs_in=%s\n",
+    printf(" hs_in_dly=%u vs_in_dly=%u pixel_cnt=%u\n",
+           r->dtg2.hs_in_dly, r->dtg2.vs_in_dly, r->dtg2.pixel_cnt);
+    printf(" ip_fmt=%s line_cnt=%u fid_de=%s rgb_mode=%s emb_timing=%s vsout_pol=%s hsout_pol=%s fid_pol=%s vs_pol=%s hs_pol=%s\n",
            boolstr(r->dtg2.ctrl.ip_fmt), r->dtg2.ctrl.line_cnt,
            boolstr(r->dtg2.ctrl.fid_de), boolstr(r->dtg2.ctrl.rgb_mode),
-           boolstr(r->dtg2.ctrl.emb_timing), boolstr(r->dtg2.ctrl.vs_out),
-           boolstr(r->dtg2.ctrl.hs_out), boolstr(r->dtg2.ctrl.fid_pol),
-           boolstr(r->dtg2.ctrl.vs_in), boolstr(r->dtg2.ctrl.hs_in));
+           boolstr(r->dtg2.ctrl.emb_timing), boolstr(r->dtg2.ctrl.vsout_pol),
+           boolstr(r->dtg2.ctrl.hsout_pol), boolstr(r->dtg2.ctrl.fid_pol),
+           boolstr(r->dtg2.ctrl.vs_pol), boolstr(r->dtg2.ctrl.hs_pol));
 
     printf("CGMS: header=0x%02X payload=%u\n",
            r->cgms.header, r->cgms.payload);

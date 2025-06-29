@@ -20,11 +20,12 @@ typedef struct {
         struct {
             bool vesa_clk;       /**< @0x03 bit7 */
             bool dll_bypass;     /**< @0x03 bit6 */
-            bool dac_pwdn;       /**< @0x03 bit5 */
-            bool chip_pwdn;      /**< @0x03 bit4 */
-            bool chip_msbars;    /**< @0x03 bit3 */
-            bool sel_func_n;     /**< @0x03 bit2 */
-            bool arst_func_n;    /**< @0x03 bit1 software reset */
+            bool vesa_colorbars; /**< @0x03 bit5 */
+            bool dll_freq_sel;   /**< @0x03 bit4 */
+            bool dac_pwdn;       /**< @0x03 bit3 */
+            bool chip_pwdn;      /**< @0x03 bit2 */
+            bool chip_ms;        /**< @0x03 bit1 */
+            bool arst_func_n;    /**< @0x03 bit0 software reset */
         } ctl;
     } system;
 
@@ -58,12 +59,12 @@ typedef struct {
 
     /** 0x1C: Data Path Control */
     struct {
-        bool    clk656;    /**< @0x1C bit7 */
-        bool    fsadj;     /**< @0x1C bit6 */
-        bool    ifir12;    /**< @0x1C bit5 */
-        bool    ifir35;    /**< @0x1C bit4 */
-        bool    tri656;    /**< @0x1C bit3 */
-        uint8_t format;    /**< @0x1C bits2-0 */
+        bool    clk656_on;    /**< @0x1C bit7 */
+        bool    fsadj;        /**< @0x1C bit6 */
+        bool    ifir12_bypass;/**< @0x1C bit5 */
+        bool    ifir35_bypass;/**< @0x1C bit4 */
+        bool    tristate656;  /**< @0x1C bit3 */
+        uint8_t dman_cntl;    /**< @0x1C bits2-0 */
     } datapath;
 
     /** 0x1D–0x3C: Display Timing Generator, Part 1 */
@@ -98,7 +99,7 @@ typedef struct {
 
     /** 0x3D–0x40: DAC Control */
     struct {
-        bool     i2c_ctrl; /**< @0x3D bit6 */
+        bool     i2c_cntl; /**< @0x3D bit6 */
         uint16_t dac1;     /**< 0x3D[5:4] & 0x3E */
         uint16_t dac2;     /**< 0x3D[3:2] & 0x3F */
         uint16_t dac3;     /**< 0x3D[1:0] & 0x40 */
@@ -131,8 +132,8 @@ typedef struct {
         uint16_t vdly1;       /**< dtg2_vdly1 (11-bit): 0x74(2:0)&0x75 */
         uint16_t vlength2;    /**< dtg2_vlength2 (10-bit): 0x76–0x77 */
         uint16_t vdly2;       /**< dtg2_vdly2 (11-bit): 0x77(7:6)&0x78 */
-        uint16_t hsind;       /**< dtg2_hs_in_dly (13-bit): 0x79(4:0)&0x7A */
-        uint16_t vsind;       /**< dtg2_vs_in_dly (11-bit): 0x7B(2:0)&0x7C */
+        uint16_t hs_in_dly;   /**< dtg2_hs_in_dly (13-bit): 0x79(4:0)&0x7A */
+        uint16_t vs_in_dly;   /**< dtg2_vs_in_dly (11-bit): 0x7B(2:0)&0x7C */
         uint16_t pixel_cnt;   /**< dtg2_pixel_cnt (16-bit r/o): 0x7D–0x7E */
         struct {
             bool    ip_fmt;    /**< @0x7F bit7 */
@@ -140,11 +141,11 @@ typedef struct {
             bool    fid_de;    /**< @0x82 bit7 */
             bool    rgb_mode;  /**< @0x82 bit6 */
             bool    emb_timing;/**< @0x82 bit5 */
-            bool    vs_out;    /**< @0x82 bit4 */
-            bool    hs_out;    /**< @0x82 bit3 */
+            bool    vsout_pol; /**< @0x82 bit4 */
+            bool    hsout_pol; /**< @0x82 bit3 */
             bool    fid_pol;   /**< @0x82 bit2 */
-            bool    vs_in;     /**< @0x82 bit1 */
-            bool    hs_in;     /**< @0x82 bit0 */
+            bool    vs_pol;    /**< @0x82 bit1 */
+            bool    hs_pol;    /**< @0x82 bit0 */
         } ctrl;
     } dtg2;
 
