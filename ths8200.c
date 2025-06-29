@@ -368,7 +368,7 @@ void ths8200_print_regs(const ths8200_regs_t *r)
 printf("CSC:\n");
 #define PR_COEF(name) \
     printf(" %s = %.3f\n", #name, \
-           r->csc.name##_int + r->csc.name##_frac / 256.0)
+           r->csc.name##_int + r->csc.name##_frac / 256.0f)
 PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
 PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
 PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
