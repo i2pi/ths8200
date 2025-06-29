@@ -357,3 +357,89 @@ static inline int ths8200_write_regs(const struct device *dev,
     return i2c_burst_write(dev, addr, 0x00, buf, sizeof(buf));
 }
 
+static inline const char *boolstr(bool v) { return v ? "true" : "false"; }
+
+void ths8200_print_regs(const ths8200_regs_t *r)
+{
+    printf("System.version: 0x%02X\n", r->system.version);
+    printf(" System ctl: vesa_clk=%s dll_bypass=%s dac_pwdn=%s chip_pwdn=%s chip_msbars=%s sel_func_n=%s arst_func_n=%s\n",
+           boolstr(r->system.ctl.vesa_clk), boolstr(r->system.ctl.dll_bypass),
+           boolstr(r->system.ctl.dac_pwdn), boolstr(r->system.ctl.chip_pwdn),
+           boolstr(r->system.ctl.chip_msbars), boolstr(r->system.ctl.sel_func_n),
+           boolstr(r->system.ctl.arst_func_n));
+
+    printf("CSC:\n");
+#define PR_COEF(name) \
+    printf(" %s = %d + 0x%02X/256\n", #name, r->csc.name##_int, r->csc.name##_frac)
+    PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
+    PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
+    PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
+    PR_COEF(yoff); PR_COEF(cboff);
+#undef PR_COEF
+    printf(" csc_bypass=%s csc_uof=%s\n",
+           boolstr(r->csc.csc_bypass), boolstr(r->csc.csc_uof));
+
+    printf("Test: digbypass=%s force_off=%s ydelay=%u fastramp=%s slowramp=%s\n",
+           boolstr(r->test.digbypass), boolstr(r->test.force_off),
+           r->test.ydelay, boolstr(r->test.fastramp), boolstr(r->test.slowramp));
+
+    printf("Datapath: clk656=%s fsadj=%s ifir12=%s ifir35=%s tri656=%s format=0x%X\n",
+           boolstr(r->datapath.clk656), boolstr(r->datapath.fsadj),
+           boolstr(r->datapath.ifir12), boolstr(r->datapath.ifir35),
+           boolstr(r->datapath.tri656), r->datapath.format);
+
+    printf("DTG1:\n");
+    printf(" y_blank=%u y_sync_lo=%u y_sync_hi=%u\n",
+           r->dtg1.y_blank, r->dtg1.y_sync_lo, r->dtg1.y_sync_hi);
+    printf(" cbcr_blank=%u cbcr_sync_lo=%u cbcr_sync_hi=%u\n",
+           r->dtg1.cbcr_blank, r->dtg1.cbcr_sync_lo, r->dtg1.cbcr_sync_hi);
+    printf(" dtg1_on=%s pass_thru=%s mode=0x%X\n",
+           boolstr(r->dtg1.dtg1_on), boolstr(r->dtg1.pass_thru), r->dtg1.mode);
+    printf(" spec_a=0x%02X spec_b=0x%02X spec_c=0x%02X spec_d=0x%02X spec_d1=0x%02X spec_e=0x%02X\n",
+           r->dtg1.spec_a, r->dtg1.spec_b, r->dtg1.spec_c, r->dtg1.spec_d,
+           r->dtg1.spec_d1, r->dtg1.spec_e);
+    printf(" spec_h=%u spec_i=%u spec_k=%u spec_k1=0x%02X\n",
+           r->dtg1.spec_h, r->dtg1.spec_i, r->dtg1.spec_k, r->dtg1.spec_k1);
+    printf(" spec_g=%u total_pixels=%u field_flip=%s line_cnt=%u\n",
+           r->dtg1.spec_g, r->dtg1.total_pixels, boolstr(r->dtg1.field_flip), r->dtg1.line_cnt);
+    printf(" frame_size=%u field_size=%u cbar_size=%u\n",
+           r->dtg1.frame_size, r->dtg1.field_size, r->dtg1.cbar_size);
+
+    printf("DAC: i2c_ctrl=%s dac1=%u dac2=%u dac3=%u\n",
+           boolstr(r->dac.i2c_ctrl), r->dac.dac1, r->dac.dac2, r->dac.dac3);
+
+    printf("CSM:\n");
+    printf(" clip_gy_lo=%u clip_cb_lo=%u clip_cr_lo=%u\n", r->csm.clip_gy_lo, r->csm.clip_cb_lo, r->csm.clip_cr_lo);
+    printf(" clip_gy_hi=%u clip_cb_hi=%u clip_cr_hi=%u\n", r->csm.clip_gy_hi, r->csm.clip_cb_hi, r->csm.clip_cr_hi);
+    printf(" shift_gy=%u shift_cb=%u shift_cr=%u\n", r->csm.shift_gy, r->csm.shift_cb, r->csm.shift_cr);
+    printf(" mult_gy=%u.%u mult_cb=%u.%u mult_cr=%u.%u csm_ctrl=0x%02X\n",
+           r->csm.mult_gy_msb, r->csm.mult_gy_lsb,
+           r->csm.mult_cb_msb, r->csm.mult_cb_lsb,
+           r->csm.mult_cr_msb, r->csm.mult_cr_lsb,
+           r->csm.csm_ctrl);
+
+    printf("DTG2 breakpoints:\n");
+    for (int i = 0; i < 16; i++)
+        printf("  bp[%d]=%u\n", i, r->dtg2.bp[i]);
+    for (int i = 0; i < 16; i++)
+        printf("  linetype[%d]=0x%X\n", i, r->dtg2.linetype[i]);
+
+    printf("DTG2 timing: hlength=%u hdly=%u vlength1=%u vdly1=%u vlength2=%u vdly2=%u\n",
+           r->dtg2.hlength, r->dtg2.hdly, r->dtg2.vlength1, r->dtg2.vdly1,
+           r->dtg2.vlength2, r->dtg2.vdly2);
+    printf(" hsind=%u vsind=%u pixel_cnt=%u\n",
+           r->dtg2.hsind, r->dtg2.vsind, r->dtg2.pixel_cnt);
+    printf(" ip_fmt=%s line_cnt=%u fid_de=%s rgb_mode=%s emb_timing=%s vs_out=%s hs_out=%s fid_pol=%s vs_in=%s hs_in=%s\n",
+           boolstr(r->dtg2.ctrl.ip_fmt), r->dtg2.ctrl.line_cnt,
+           boolstr(r->dtg2.ctrl.fid_de), boolstr(r->dtg2.ctrl.rgb_mode),
+           boolstr(r->dtg2.ctrl.emb_timing), boolstr(r->dtg2.ctrl.vs_out),
+           boolstr(r->dtg2.ctrl.hs_out), boolstr(r->dtg2.ctrl.fid_pol),
+           boolstr(r->dtg2.ctrl.vs_in), boolstr(r->dtg2.ctrl.hs_in));
+
+    printf("CGMS: enable=%s header=0x%02X payload=%u\n",
+           boolstr(r->cgms.enable), r->cgms.header, r->cgms.payload);
+
+    printf("Readback: ppl=%u lpf=%u\n",
+           r->readback.ppl, r->readback.lpf);
+}
+
