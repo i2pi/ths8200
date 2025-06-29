@@ -8,162 +8,160 @@
  * @file ths8200_regs.h
  * @brief Complete THS8200 DAC register map as nested C structures.
  *
- * Each register field is annotated with its default value and I2C sub-address & bit positions
- * according to the THS8200-EP datasheet.
+ * Each field abstracts MSB/LSB register pairs into single variables,
+ * and splits integer and fractional parts for Q2.8 values.
  */
-
 typedef struct {
-    uint8_t reserved0; /**< Reserved @0x00 */
-    uint8_t reserved1; /**< Reserved @0x01 */
-
-    /** System Control (Sub-Addresses 0x02-0x03) */
+    /** 0x02–0x03: System Control */
     struct {
-        uint8_t version;
-        /**< ver(7:0): Device version [00000000]. @0x02 bits[7:0] */
-
+        uint8_t version;         /**< @0x02 Device version */
         struct {
-            bool vesa_clk;    /**< vesa_clk: Clock mode selection [0]. @0x03 bit7 */
-            bool dll_bypass;  /**< dll_bypass: DLL bypass [0]. @0x03 bit6 */
-            bool dac_pwdn;    /**< dac_pwdn: DAC power-down [0]. @0x03 bit5 */
-            bool chip_pwdn;   /**< chip_pwdn: Chip power-down [0]. @0x03 bit4 */
-            bool chip_msbars; /**< chip_msbars: Master/slave select [0]. @0x03 bit3 */
-            bool sel_func_n;  /**< sel_func_n: Function select n [0]. @0x03 bit2 */
+            bool vesa_clk;       /**< @0x03 bit7 */
+            bool dll_bypass;     /**< @0x03 bit6 */
+            bool dac_pwdn;       /**< @0x03 bit5 */
+            bool chip_pwdn;      /**< @0x03 bit4 */
+            bool chip_msbars;    /**< @0x03 bit3 */
+            bool sel_func_n;     /**< @0x03 bit2 */
+            bool arst_func_n;    /**< @0x03 bit1 software reset */
         } ctl;
     } system;
 
-    /** Color Space Conversion (Sub-Addresses 0x04-0x19) */
+    /** 0x04–0x19: Color Space Conversion (Q2.8) */
     struct {
-        /* R->R, R->G, R->B coefficients */
-        int16_t csc_r11; /**< csc_r11: coefficient (signed Q2.8) [0]. @0x04-0x05 */
-        int16_t csc_r12; /**< csc_r12: fractional part [0]. @0x05 bits */
-        int16_t csc_r21; /**< csc_r21: coefficient (signed Q2.8) [0]. @0x06-0x07 */
-        int16_t csc_r22; /**< csc_r22: fractional part [0]. @0x07 bits */
-        int16_t csc_r31; /**< csc_r31: coefficient (signed Q2.8) [0]. @0x08-0x09 */
-        int16_t csc_r32; /**< csc_r32: fractional part [0]. @0x09 bits */
-        /* G->R, G->G, G->B coefficients */
-        int16_t csc_g11; /**< csc_g11: coefficient (signed Q2.8) [0]. @0x0A-0x0B */
-        int16_t csc_g12; /**< csc_g12: fractional part [0]. @0x0B bits */
-        int16_t csc_g21; /**< csc_g21: coefficient (signed Q2.8) [0]. @0x0C-0x0D */
-        int16_t csc_g22; /**< csc_g22: fractional part [0]. @0x0D bits */
-        int16_t csc_g31; /**< csc_g31: coefficient (signed Q2.8) [0]. @0x0E-0x0F */
-        int16_t csc_g32; /**< csc_g32: fractional part [0]. @0x0F bits */
-        /* B->R, B->G, B->B coefficients */
-        int16_t csc_b11; /**< csc_b11: coefficient (signed Q2.8) [0]. @0x10-0x11 */
-        int16_t csc_b12; /**< csc_b12: fractional part [0]. @0x11 bits */
-        int16_t csc_b21; /**< csc_b21: coefficient (signed Q2.8) [0]. @0x12-0x13 */
-        int16_t csc_b22; /**< csc_b22: fractional part [0]. @0x13 bits */
-        int16_t csc_b31; /**< csc_b31: coefficient (signed Q2.8) [0]. @0x14-0x15 */
-        int16_t csc_b32; /**< csc_b32: fractional part [0]. @0x15 bits */
-
-        /* CSC Offsets */
-        int16_t offs1; /**< csc_offset1(9:0): DAC1 offset [0]. @0x16-0x17 */
-        int16_t offs2; /**< csc_offset2(9:0): DAC2 offset [0]. @0x17-0x18 */
-        int16_t offs3; /**< csc_offset3(9:0): DAC3 offset [0]. @0x18-0x19 */
-        bool bypass;  /**< csc_bypass: CSC bypass [1]. @0x19 bit1 */
-        bool uof;     /**< csc_uof_cntl: Under/overflow control [0]. @0x19 bit0 */
+        /* coefficients: MSB = int part, frac = fractional byte */
+        int8_t  r2r_int; uint8_t r2r_frac; /**< @0x04/05 R→R */
+        int8_t  r2g_int; uint8_t r2g_frac; /**< @0x06/07 R→G */
+        int8_t  r2b_int; uint8_t r2b_frac; /**< @0x08/09 R→B */
+        int8_t  g2r_int; uint8_t g2r_frac; /**< @0x0A/0x0B G→R */
+        int8_t  g2g_int; uint8_t g2g_frac; /**< @0x0C/0x0D G→G */
+        int8_t  g2b_int; uint8_t g2b_frac; /**< @0x0E/0x0F G→B */
+        int8_t  b2r_int; uint8_t b2r_frac; /**< @0x10/0x11 B→R */
+        int8_t  b2g_int; uint8_t b2g_frac; /**< @0x12/0x13 B→G */
+        int8_t  b2b_int; uint8_t b2b_frac; /**< @0x14/0x15 B→B */
+        /* offsets: same Q2.8 format */
+        int8_t  yoff_int; uint8_t yoff_frac; /**< @0x16/17 Y offset */
+        int8_t  cboff_int; uint8_t cboff_frac; /**< @0x18/19 Cb/Cr offset */
+        bool    csc_bypass; /**< @0x19 bit1 */
+        bool    csc_uof;    /**< @0x19 bit0 under/overflow control */
     } csc;
 
-    /** Test Control (Sub-Addresses 0x1A-0x1B) */
+    /** 0x1A–0x1B: Test Control */
     struct {
-        bool digbypass; /**< tst_digbypass [0]. @0x1A bit7 */
-        bool offset;    /**< tst_offset [0]. @0x1A bit6 */
-        uint8_t ydelay; /**< tst_ydelay(1:0) [00]. @0x1B bits7..6 */
-        bool fastramp;  /**< tst_fastramp [0]. @0x1B bit1 */
-        bool slowramp;  /**< tst_slowramp [0]. @0x1B bit0 */
+        bool    digbypass; /**< @0x1A bit7 */
+        bool    force_off; /**< @0x1A bit6 */
+        uint8_t ydelay;    /**< @0x1B bits7-6 */
+        bool    fastramp;  /**< @0x1B bit1 */
+        bool    slowramp;  /**< @0x1B bit0 */
     } test;
 
-    /** Data Path Control (Sub-Address 0x1C) */
+    /** 0x1C: Data Path Control */
     struct {
-        bool clk656;      /**< data_clk656_on [0]. @0x1C bit7 */
-        bool fsadj;       /**< data_fsadj [0]. @0x1C bit6 */
-        bool ifir12;      /**< data_ifir12_bypass [0]. @0x1C bit5 */
-        bool ifir35;      /**< data_ifir35_bypass [0]. @0x1C bit4 */
-        bool tristate656; /**< data_tristate656 [0]. @0x1C bit3 */
-        uint8_t dman;     /**< data_dman_cntl(2:0) [011]. @0x1C bits2..0 */
+        bool    clk656;    /**< @0x1C bit7 */
+        bool    fsadj;     /**< @0x1C bit6 */
+        bool    ifir12;    /**< @0x1C bit5 */
+        bool    ifir35;    /**< @0x1C bit4 */
+        bool    tri656;    /**< @0x1C bit3 */
+        uint8_t format;    /**< @0x1C bits2-0 */
     } datapath;
 
-    /** Display Timing Generator, Part 1 (Sub-Addresses 0x1D-0x3C) */
+    /** 0x1D–0x3C: Display Timing Generator, Part 1 */
     struct {
-        uint16_t y_blank;   /**< dtg1_y_blank(9:0) [0x200]. MSB@0x23[5:4], LSB@0x1D */
-        uint16_t y_sync_lo; /**< dtg1_y_sync_low(9:0) [0]. MSB@0x23[3:2], LSB@0x1E */
-        uint16_t y_sync_hi; /**< dtg1_y_sync_high(9:0) [0x300]. MSB@0x23[1:0], LSB@0x1F */
-        uint16_t cbc_blank; /**< dtg1_cbcr_blank(9:0) [0x200]. MSB@0x24[5:4], LSB@0x20 */
-        uint16_t cbc_sync_lo;/**< dtg1_cbcr_sync_low(9:0) [0]. MSB@0x24[3:2], LSB@0x21 */
-        uint16_t cbc_sync_hi;/**< dtg1_cbcr_sync_high(9:0) [0x300]. MSB@0x24[1:0], LSB@0x22 */
-        uint8_t mode;       /**< dtg1_mode [generic]. @0x23 bits7..4 */
-        uint16_t frame_size;/**< dtg1_frame_size(10:0) [generic]. @0x39-0x3A */
-        uint16_t field_size;/**< dtg1_field_size(10:0) [generic]. @0x39-0x3B */
-        uint8_t cbar_size;  /**< dtg1_vesa_cbar_size [0x80]. @0x3C */
+        uint16_t y_blank;      /**< @0x1D LSB, 0x23[5:4] MSB */
+        uint16_t y_sync_lo;    /**< @0x1E/0x23[3:2] */
+        uint16_t y_sync_hi;    /**< @0x1F/0x23[1:0] */
+        uint16_t cbcr_blank;   /**< @0x20/0x24[5:4] */
+        uint16_t cbcr_sync_lo; /**< @0x21/0x24[3:2] */
+        uint16_t cbcr_sync_hi; /**< @0x22/0x24[1:0] */
+        bool     dtg1_on;      /**< @0x38 bit7 */
+        bool     pass_thru;    /**< @0x38 bit4 */
+        uint8_t  mode;         /**< @0x38 bits3-0 */
+        uint8_t  spec_a;       /**< @0x25 */
+        uint8_t  spec_b;       /**< @0x26 */
+        uint8_t  spec_c;       /**< @0x27 */
+        uint8_t  spec_d;       /**< @0x28 */
+        uint8_t  spec_d1;      /**< @0x29 */
+        uint8_t  spec_e;       /**< @0x2A */
+        uint16_t spec_h;       /**< 0x2B[3:2] & 0x2C */
+        uint16_t spec_i;       /**< 0x2D[3:0] & 0x2E */
+        uint16_t spec_k;       /**< 0x2F & 0x30[2:0] */
+        uint8_t  spec_k1;      /**< @0x31 */
+        uint16_t spec_g;       /**< 0x32 & 0x33[3:0] */
+        uint16_t total_pixels; /**< 0x34[4:0] & 0x35 */
+        bool     field_flip;   /**< @0x36 bit7 */
+        uint16_t line_cnt;     /**< 0x36[2:0] & 0x37 */
+        uint16_t frame_size;   /**< 0x39[6:4] & 0x3A */
+        uint16_t field_size;   /**< 0x39[2:0] & 0x3B */
+        uint8_t  cbar_size;    /**< @0x3C */
     } dtg1;
 
-    /** DAC Control (Sub-Addresses 0x3D-0x40) */
+    /** 0x3D–0x40: DAC Control */
     struct {
-        bool i2c_cntl;    /**< dac_i2c_cntl [0]. @0x3D bit6 */
-        uint16_t dac1;    /**< dac1_cntl(9:0) [0]. MSB@0x3D[5:4], LSB@0x3E */
-        uint16_t dac2;    /**< dac2_cntl(9:0) [0]. MSB@0x3D[3:2], LSB@0x3F */
-        uint16_t dac3;    /**< dac3_cntl(9:0) [0]. MSB@0x3D[1:0], LSB@0x40 */
+        bool     i2c_ctrl; /**< @0x3D bit6 */
+        uint16_t dac1;     /**< 0x3D[5:4] & 0x3E */
+        uint16_t dac2;     /**< 0x3D[3:2] & 0x3F */
+        uint16_t dac3;     /**< 0x3D[1:0] & 0x40 */
     } dac;
 
-    /** Clip/Scale/Multiplier Control (Sub-Addresses 0x41-0x4F) */
+    /** 0x41–0x4F: Clip/Scale/Multiplier */
     struct {
-        uint8_t clip_gy_lo; /**< csm_clip_gy_low(7:0) [0]. @0x41 */
-        uint8_t clip_bcb_lo;/**< csm_clip_bcb_low(7:0) [0]. @0x42 */
-        uint8_t clip_rcr_lo;/**< csm_clip_rcr_low(7:0) [0]. @0x43 */
-        uint8_t clip_gy_hi; /**< csm_clip_gy_high(7:0) [0]. @0x44 */
-        uint8_t clip_bcb_hi;/**< csm_clip_bcb_high(7:0) [0]. @0x45 */
-        uint8_t clip_rcr_hi;/**< csm_clip_rcr_high(7:0) [0]. @0x46 */
-        uint8_t shift_gy;   /**< csm_shift_gy(7:0) [0]. @0x47 */
-        uint8_t shift_bcb;  /**< csm_shift_bcb(7:0) [0]. @0x48 */
-        uint8_t shift_rcr;  /**< csm_shift_rcr(7:0) [0]. @0x49 */
-        uint8_t mult_gy_msb;/**< csm_mult_gy(10:8) [0]. @0x4A bits7..5 */
-        uint8_t mult_bcb_msb;/**< csm_mult_bcb(10:8) [0]. @0x4B bits5..3 */
-        uint8_t mult_rcr_msb;/**< csm_mult_rcr(10:8) [0]. @0x4B bits2..0 */
-        uint8_t mult_gy_lsb;/**< csm_mult_gy(7:0) [0]. @0x4C */
-        uint8_t mult_bcb_lsb;/**< csm_mult_bcb(7:0) [0]. @0x4D */
-        uint8_t mult_rcr_lsb;/**< csm_mult_rcr(7:0) [0]. @0x4E */
-        uint8_t csm_ctl;    /**< csm control bits [0]. @0x4F */
+        uint8_t clip_gy_lo;   /**< @0x41 */
+        uint8_t clip_cb_lo;   /**< @0x42 */
+        uint8_t clip_cr_lo;   /**< @0x43 */
+        uint8_t clip_gy_hi;   /**< @0x44 */
+        uint8_t clip_cb_hi;   /**< @0x45 */
+        uint8_t clip_cr_hi;   /**< @0x46 */
+        uint8_t shift_gy;     /**< @0x47 */
+        uint8_t shift_cb;     /**< @0x48 */
+        uint8_t shift_cr;     /**< @0x49 */
+        uint8_t mult_gy_msb;  /**< @0x4A bits7-5 */
+        uint8_t mult_cb_msb;  /**< @0x4B bits5-3 */
+        uint8_t mult_cr_msb;  /**< @0x4B bits2-0 */
+        uint8_t mult_gy_lsb;  /**< @0x4C */
+        uint8_t mult_cb_lsb;  /**< @0x4D */
+        uint8_t mult_cr_lsb;  /**< @0x4E */
+        uint8_t csm_ctrl;     /**< @0x4F */
     } csm;
 
-    /** Display Timing Generator, Part 2 (Sub-Addresses 0x50-0x82) */
+    /** 0x50–0x82: Display Timing Generator, Part 2 */
     struct {
-        uint16_t bp[16];   /**< dtg2 breakpoints(10:0) [0]. @0x50-0x5F */
-        uint8_t linetype[16]; /**< dtg2_linetype codes(3:0) [0]. @0x62,0x64-0x75 */
-        uint16_t hlength;  /**< dtg2_hlength(9:0) [0x060]. @0x70-0x71 */
-        uint16_t hdly;     /**< dtg2_hdly(12:0) [0x0020]. @0x71-0x72 */
-        uint16_t vlength1; /**< dtg2_vlength1(9:0) [0x003]. @0x73-0x74 */
-        uint16_t vdly1;    /**< dtg2_vdly1(10:0) [0]. @0x74-0x75 */
-        uint16_t vlength2; /**< dtg2_vlength2(9:0)[0]. @0x76-0x77 */
-        uint16_t vdly2;    /**< dtg2_vdly2(10:0)[0x3FF]. @0x77-0x78 */
-        uint16_t hs_dly;   /**< dtg2_hs_in_dly(12:0)[0x03D]. @0x79-0x7A */
-        uint16_t vs_dly;   /**< dtg2_vs_in_dly(10:0)[0x003]. @0x7B-0x7C */
-        uint16_t pixel_cnt;/**< dtg2_pixel_cnt(15:0)[r/o]. @0x7D-0x7E */
+        uint16_t bp[16];      /**< dtg2 breakpoints (11-bit): 0x50–0x61 MSB & 0x58–0x69 LSB */
+        uint8_t  linetype[16];/**< dtg2 line types: 0x68–0x6F hold two codes each */
+        uint16_t hlength;     /**< dtg2_hlength (10-bit): 0x70–0x71 */
+        uint16_t hdly;        /**< dtg2_hdly (13-bit): 0x71(4:0)&0x72 */
+        uint16_t vlength1;    /**< dtg2_vlength1 (10-bit): 0x73–0x74 */
+        uint16_t vdly1;       /**< dtg2_vdly1 (11-bit): 0x74(2:0)&0x75 */
+        uint16_t vlength2;    /**< dtg2_vlength2 (10-bit): 0x76–0x77 */
+        uint16_t vdly2;       /**< dtg2_vdly2 (11-bit): 0x77(7:6)&0x78 */
+        uint16_t hsind;       /**< dtg2_hs_in_dly (13-bit): 0x79(4:0)&0x7A */
+        uint16_t vsind;       /**< dtg2_vs_in_dly (11-bit): 0x7B(2:0)&0x7C */
+        uint16_t pixel_cnt;   /**< dtg2_pixel_cnt (16-bit r/o): 0x7D–0x7E */
         struct {
-            bool ip_fmt;    /**< dtg2 interlaced/prog flag [r/o]. @0x7F bit7 */
-            uint16_t line_cnt; /**< dtg2 line count(10:0) [r/o]. @0x7F-0x80 */
-            bool fid_de;    /**< dtg2 fID/DE select [0]. @0x82 bit7 */
-            bool rgb_mode;  /**< dtg2 rgb_mode_on [1]. @0x82 bit6 */
-            bool emb_timing;/**< dtg2 embedded timing [0]. @0x82 bit5 */
-            bool vsout_pol; /**< dtg2 vsout_pol [1]. @0x82 bit4 */
-            bool hsout_pol; /**< dtg2 hsout_pol [1]. @0x82 bit3 */
-            bool fid_pol;   /**< dtg2 fid_pol [1]. @0x82 bit2 */
-            bool vsin_pol;  /**< dtg2 vsin_pol [1]. @0x82 bit1 */
-            bool hsin_pol;  /**< dtg2 hsin_pol [1]. @0x82 bit0 */
-        } cntl;
+            bool    ip_fmt;    /**< @0x7F bit7 */
+            uint16_t line_cnt; /**< dtg2_line_cnt (11-bit): 0x7F[6:0]&0x80 */
+            bool    fid_de;    /**< @0x82 bit7 */
+            bool    rgb_mode;  /**< @0x82 bit6 */
+            bool    emb_timing;/**< @0x82 bit5 */
+            bool    vs_out;    /**< @0x82 bit4 */
+            bool    hs_out;    /**< @0x82 bit3 */
+            bool    fid_pol;   /**< @0x82 bit2 */
+            bool    vs_in;     /**< @0x82 bit1 */
+            bool    hs_in;     /**< @0x82 bit0 */
+        } ctrl;
     } dtg2;
 
-    /** CGMS Control (Sub-Addresses 0x83-0x85) */
+    /** 0x83–0x85: CGMS Control */
     struct {
-        bool enable;       /**< cgms enable [0]. @0x83 bit6 */
-        uint8_t header;    /**< cgms_header(5:0) [0]. @0x83 bits5..0 */
-        uint16_t payload;  /**< cgms_payload(13:0) [0]. @0x84-0x85 */
+        bool    enable;      /**< @0x83 bit6 */
+        uint8_t header;      /**< @0x83 bits5-0 */
+        uint16_t payload;    /**< @0x84–0x85 (14-bit) */
     } cgms;
 
-    /** Readback (Sub-Addresses 0x86-0x89) */
+    /** 0x86–0x89: Readback */
     struct {
-        uint16_t ppl; /**< HS high count(15:0) [r/o]. @0x87-0x86 */
-        uint16_t lpf; /**< VS high count(15:0) [r/o]. @0x89-0x88 */
+        uint16_t ppl;        /**< @0x86–0x87 */
+        uint16_t lpf;        /**< @0x88–0x89 */
     } readback;
 } ths8200_regs_t;
 
-#endif // THS8200_REGS_H
+#endif /* THS8200_REGS_H */
 

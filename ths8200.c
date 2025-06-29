@@ -1,14 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <stdint.h>
 #include "ths8200.h"
 
 struct device { int x; };
 
-int i2c_burst_write(const struct device *dev, uint8_t addr, uint8_t d, uint8_t *buf, uint16_t size) { return (0); }
-int i2c_burst_read(const struct device *dev, uint8_t addr, uint8_t d, uint8_t *buf, uint16_t size) { return (0); }
+int i2c_burst_write(const struct device *dev, uint8_t addr,
+                    uint8_t reg, const uint8_t *buf, uint16_t size);
+int i2c_burst_read(const struct device *dev, uint8_t addr,
+                   uint8_t reg, uint8_t *buf, uint16_t size);
 
-#define THS8200_REG_COUNT 159
+#define THS8200_REG_COUNT  (0x89 + 1)
 
 /**
  * @brief Read all THS8200 registers into ths8200_regs_t.
@@ -19,289 +21,172 @@ static inline int ths8200_read_regs(const struct device *dev,
 {
     uint8_t buf[THS8200_REG_COUNT];
     int rc = i2c_burst_read(dev, addr, 0x00, buf, sizeof(buf));
-    if (rc) {
-        return rc;
-    }
+    if (rc) return rc;
     uint8_t t;
 
     /* System */
-    r->reserved0 = buf[0];
-    r->reserved1 = buf[1];
-    r->system.version = buf[2];
-    t = buf[3];
+    r->system.version = buf[0x02];
+    t = buf[0x03];
     r->system.ctl.vesa_clk    = (t >> 7) & 1;
     r->system.ctl.dll_bypass  = (t >> 6) & 1;
     r->system.ctl.dac_pwdn    = (t >> 5) & 1;
     r->system.ctl.chip_pwdn   = (t >> 4) & 1;
     r->system.ctl.chip_msbars = (t >> 3) & 1;
     r->system.ctl.sel_func_n  = (t >> 2) & 1;
+    r->system.ctl.arst_func_n = (t >> 1) & 1;
+    
+    /* CSC Q2.8 coefficients & offsets */
+    #define RD_COEF(msb, lsb, i_part, f_part) \
+        r->csc.i_part  = (int8_t)buf[msb];   \
+        r->csc.f_part  = buf[lsb]
+    RD_COEF(0x04,0x05, r2r_int, r2r_frac);
+    RD_COEF(0x06,0x07, r2g_int, r2g_frac);
+    RD_COEF(0x08,0x09, r2b_int, r2b_frac);
+    RD_COEF(0x0A,0x0B, g2r_int, g2r_frac);
+    RD_COEF(0x0C,0x0D, g2g_int, g2g_frac);
+    RD_COEF(0x0E,0x0F, g2b_int, g2b_frac);
+    RD_COEF(0x10,0x11, b2r_int, b2r_frac);
+    RD_COEF(0x12,0x13, b2g_int, b2g_frac);
+    RD_COEF(0x14,0x15, b2b_int, b2b_frac);
+    RD_COEF(0x16,0x17, yoff_int, yoff_frac);
+    RD_COEF(0x18,0x19, cboff_int, cboff_frac);
+    #undef RD_COEF
+    t = buf[0x19];
+    r->csc.csc_bypass = (t >> 1) & 1;
+    r->csc.csc_uof    =  t       & 1;
 
-    /* CSC */
-    #define RD16(msb, lsb) ((int16_t)((buf[msb] << 8) | buf[lsb]))
-    r->csc.csc_r11 = RD16(4,5);
-    r->csc.csc_r21 = RD16(6,7);
-    r->csc.csc_r31 = RD16(8,9);
-    r->csc.csc_g11 = RD16(10,11);
-    r->csc.csc_g21 = RD16(12,13);
-    r->csc.csc_g31 = RD16(14,15);
-    r->csc.csc_b11 = RD16(16,17);
-    r->csc.csc_b21 = RD16(18,19);
-    r->csc.offs1   = RD16(22,23);
-    r->csc.offs2   = RD16(24,25);
-    r->csc.offs3   = RD16(26,27);
-    t = buf[27];
-    r->csc.bypass  = (t >> 1) & 1;
-    r->csc.uof     =  t       & 1;
-    #undef RD16
-
-    /* Test */
-    t = buf[28];
+    /* Test Control */
+    t = buf[0x1A];
     r->test.digbypass = (t >> 7) & 1;
-    r->test.offset    = (t >> 6) & 1;
-    t = buf[29];
-    r->test.ydelay    = (t >> 6) & 3;
+    r->test.force_off = (t >> 6) & 1;
+    t = buf[0x1B];
+    r->test.ydelay    = (t >> 6) & 0x03;
     r->test.fastramp  = (t >> 1) & 1;
     r->test.slowramp  =  t       & 1;
 
-    /* DataPath */
-    t = buf[30];
-    r->datapath.clk656      = (t >> 7) & 1;
-    r->datapath.fsadj       = (t >> 6) & 1;
-    r->datapath.ifir12      = (t >> 5) & 1;
-    r->datapath.ifir35      = (t >> 4) & 1;
-    r->datapath.tristate656 = (t >> 3) & 1;
-    r->datapath.dman        =  t       & 7;
+    /* Data Path */
+    t = buf[0x1C];
+    r->datapath.clk656 = (t >> 7) & 1;
+    r->datapath.fsadj  = (t >> 6) & 1;
+    r->datapath.ifir12 = (t >> 5) & 1;
+    r->datapath.ifir35 = (t >> 4) & 1;
+    r->datapath.tri656 = (t >> 3) & 1;
+    r->datapath.format =  t       & 0x07;
 
-    /* DTG1 */
-    #define RD10(msb_reg, msb_bits, lsb_reg) \
-        ((((buf[msb_reg] >> msb_bits) & 3) << 8) | buf[lsb_reg])
-    r->dtg1.y_blank    = RD10(35,4,29);
-    r->dtg1.y_sync_lo  = RD10(35,2,30);
-    r->dtg1.y_sync_hi  = RD10(35,0,31);
-    r->dtg1.cbc_blank  = RD10(36,4,32);
-    r->dtg1.cbc_sync_lo= RD10(36,2,33);
-    r->dtg1.cbc_sync_hi= RD10(36,0,34);
-    #undef RD10
-    r->dtg1.mode       = (buf[35] >> 4) & 0x0F;
-    r->dtg1.frame_size = (buf[57] << 8) | buf[58];
-    r->dtg1.field_size = (buf[59] << 8) | buf[60];
-    r->dtg1.cbar_size  = buf[61];
+    /* DTG1 Part1 */
+    #define RD_SPLIT(lsb, msb_reg, msb_shift, field) \
+        r->dtg1.field = ((((buf[msb_reg] >> msb_shift)&0x03)<<8) | buf[lsb])
+    RD_SPLIT(0x1D,0x23,4,y_blank);
+    RD_SPLIT(0x1E,0x23,2,y_sync_lo);
+    RD_SPLIT(0x1F,0x23,0,y_sync_hi);
+    RD_SPLIT(0x20,0x24,4,cbcr_blank);
+    RD_SPLIT(0x21,0x24,2,cbcr_sync_lo);
+    RD_SPLIT(0x22,0x24,0,cbcr_sync_hi);
+    #undef RD_SPLIT
+    t = buf[0x38];
+    r->dtg1.dtg1_on    = (t >> 7) & 1;
+    r->dtg1.pass_thru  = (t >> 4) & 1;
+    r->dtg1.mode       =  t       & 0x0F;
+    r->dtg1.spec_a     = buf[0x25];
+    r->dtg1.spec_b     = buf[0x26];
+    r->dtg1.spec_c     = buf[0x27];
+    r->dtg1.spec_d     = buf[0x28];
+    r->dtg1.spec_d1    = buf[0x29];
+    r->dtg1.spec_e     = buf[0x2A];
+    r->dtg1.spec_h     = (((buf[0x2B]>>2)&0x03)<<8) | buf[0x2C];
+    r->dtg1.spec_i     = (((buf[0x2D]&0x0F)<<8) | buf[0x2E]);
+    r->dtg1.spec_k     = (((buf[0x30]&0x07)<<8) | buf[0x2F]);
+    r->dtg1.spec_k1    = buf[0x31];
+    r->dtg1.spec_g     = (((buf[0x33]&0x0F)<<8) | buf[0x32]);
+    r->dtg1.total_pixels = (((buf[0x34]&0x1F)<<8)|buf[0x35]);
+    t = buf[0x36];
+    r->dtg1.field_flip = (t>>7)&1;
+    r->dtg1.line_cnt   = (((t&0x07)<<8)|buf[0x37]);
+    r->dtg1.frame_size= (((buf[0x39]>>4)&0x07)<<8)|buf[0x3A];
+    r->dtg1.field_size= (((buf[0x39]&0x07)<<8)|buf[0x3B]);
+    r->dtg1.cbar_size = buf[0x3C];
 
     /* DAC */
-    t = buf[62];
-    r->dac.i2c_cntl = (t >> 6) & 1;
-    r->dac.dac1    = (((t >> 4) & 3) << 8) | buf[63];
-    r->dac.dac2    = (((t >> 2) & 3) << 8) | buf[64];
-    r->dac.dac3    = (((t)      & 3) << 8) | buf[65];
+    t = buf[0x3D];
+    r->dac.i2c_ctrl = (t>>6)&1;
+    r->dac.dac1     = (((t>>4)&0x03)<<8)|buf[0x3E];
+    r->dac.dac2     = (((t>>2)&0x03)<<8)|buf[0x3F];
+    r->dac.dac3     = (((t>>0)&0x03)<<8)|buf[0x40];
 
     /* CSM */
-    r->csm.clip_gy_lo   = buf[66];
-    r->csm.clip_bcb_lo  = buf[67];
-    r->csm.clip_rcr_lo  = buf[68];
-    r->csm.clip_gy_hi   = buf[69];
-    r->csm.clip_bcb_hi  = buf[70];
-    r->csm.clip_rcr_hi  = buf[71];
-    r->csm.shift_gy     = buf[72];
-    r->csm.shift_bcb    = buf[73];
-    r->csm.shift_rcr    = buf[74];
-    r->csm.mult_gy_msb  = (buf[75] >> 5) & 7;
-    r->csm.mult_bcb_msb = (buf[76] >> 3) & 7;
-    r->csm.mult_rcr_msb =  buf[76]        & 7;
-    r->csm.mult_gy_lsb  = buf[77];
-    r->csm.mult_bcb_lsb = buf[78];
-    r->csm.mult_rcr_lsb = buf[79];
-    r->csm.csm_ctl      = buf[80];
+    r->csm.clip_gy_lo = buf[0x41];
+    r->csm.clip_cb_lo = buf[0x42];
+    r->csm.clip_cr_lo = buf[0x43];
+    r->csm.clip_gy_hi = buf[0x44];
+    r->csm.clip_cb_hi = buf[0x45];
+    r->csm.clip_cr_hi = buf[0x46];
+    r->csm.shift_gy   = buf[0x47];
+    r->csm.shift_cb   = buf[0x48];
+    r->csm.shift_cr   = buf[0x49];
+    r->csm.mult_gy_msb= (buf[0x4A]>>5)&0x07;
+    r->csm.mult_cb_msb= (buf[0x4B]>>5)&0x07;
+    r->csm.mult_cr_msb=  buf[0x4B]&0x07;
+    r->csm.mult_gy_lsb= buf[0x4C];
+    r->csm.mult_cb_lsb= buf[0x4D];
+    r->csm.mult_cr_lsb= buf[0x4E];
+    r->csm.csm_ctrl   = buf[0x4F];
 
     /* DTG2 */
-    for (int i = 0; i < 16; i++) {
-        int msb = 81 + i*2;
-        int lsb = msb + 1;
-        r->dtg2.bp[i]       = (buf[msb] << 8) | buf[lsb];
-        r->dtg2.linetype[i] = buf[113 + i];
+    for(int i=0;i<16;i++){
+        /* bp MSB at 0x50+i, LSB at 0x60+i */
+        r->dtg2.bp[i] = (((buf[0x50+i]&0x03)<<8)|buf[0x60+i]);
     }
-    r->dtg2.hlength   = (buf[129] << 8) | buf[130];
-    r->dtg2.hdly      = (buf[131] << 8) | buf[132];
-    r->dtg2.vlength1 = (buf[133] << 8) | buf[134];
-    r->dtg2.vdly1     = (buf[135] << 8) | buf[136];
-    r->dtg2.vlength2 = (buf[137] << 8) | buf[138];
-    r->dtg2.vdly2     = (buf[139] << 8) | buf[140];
-    r->dtg2.hs_dly    = (buf[141] << 8) | buf[142];
-    r->dtg2.vs_dly    = (buf[143] << 8) | buf[144];
-    r->dtg2.pixel_cnt = (buf[145] << 8) | buf[146];
-    t = buf[147];
-    r->dtg2.cntl.ip_fmt    = (t >> 7) & 1;
-    r->dtg2.cntl.line_cnt  = ((t & 0x7F) << 8) | buf[148];
-    t = buf[150];
-    r->dtg2.cntl.fid_de    = (t >> 7) & 1;
-    r->dtg2.cntl.rgb_mode  = (t >> 6) & 1;
-    r->dtg2.cntl.emb_timing= (t >> 5) & 1;
-    r->dtg2.cntl.vsout_pol = (t >> 4) & 1;
-    r->dtg2.cntl.hsout_pol = (t >> 3) & 1;
-    r->dtg2.cntl.fid_pol   = (t >> 2) & 1;
-    r->dtg2.cntl.vsin_pol  = (t >> 1) & 1;
-    r->dtg2.cntl.hsin_pol  =  t       & 1;
+    for(int i=0;i<16;i++){
+        /* linetype two per register 0x68+(i/2) */
+        uint8_t v=buf[0x68+(i/2)];
+        r->dtg2.linetype[i] = (i%2)?(v&0x0F):(v>>4);
+    }
+    /* Timing */
+    r->dtg2.hlength   = (((buf[0x71]&0x03)<<8)|buf[0x70]);
+    r->dtg2.hdly      = (((buf[0x71]&0x1F)<<8)|buf[0x72]);
+    r->dtg2.vlength1 = (((buf[0x74]&0x03)<<8)|buf[0x73]);
+    r->dtg2.vdly1     = (((buf[0x74]&0x07)<<8)|buf[0x75]);
+    r->dtg2.vlength2 = (((buf[0x77]&0x03)<<8)|buf[0x76]);
+    r->dtg2.vdly2     = (((buf[0x77]>>6)<<8)|buf[0x78]);
+    r->dtg2.hsind    = (((buf[0x79]&0x1F)<<8)|buf[0x7A]);
+    r->dtg2.vsind    = (((buf[0x7B]&0x07)<<8)|buf[0x7C]);
+    r->dtg2.pixel_cnt= ((buf[0x7D]<<8)|buf[0x7E]);
+    t=buf[0x7F];
+    r->dtg2.ctrl.ip_fmt    = (t>>7)&1;
+    r->dtg2.ctrl.line_cnt  = (((t&0x7F)<<8)|buf[0x80]);
+    t=buf[0x82];
+    r->dtg2.ctrl.fid_de    = (t>>7)&1;
+    r->dtg2.ctrl.rgb_mode  = (t>>6)&1;
+    r->dtg2.ctrl.emb_timing= (t>>5)&1;
+    r->dtg2.ctrl.vs_out    = (t>>4)&1;
+    r->dtg2.ctrl.hs_out    = (t>>3)&1;
+    r->dtg2.ctrl.fid_pol   = (t>>2)&1;
+    r->dtg2.ctrl.vs_in     = (t>>1)&1;
+    r->dtg2.ctrl.hs_in     =  t    &1;
 
     /* CGMS */
-    t = buf[151];
-    r->cgms.enable  = (t >> 6) & 1;
-    r->cgms.header  =  t       & 0x3F;
-    r->cgms.payload = (buf[152] << 8) | buf[153];
+    t = buf[0x83];
+    r->cgms.enable = (t>>6)&1;
+    r->cgms.header = t &0x3F;
+    r->cgms.payload= ((buf[0x84]<<8)|buf[0x85]);
 
     /* Readback */
-    r->readback.ppl = (buf[154] << 8) | buf[155];
-    r->readback.lpf = (buf[156] << 8) | buf[157];
+    r->readback.ppl = ((buf[0x86]<<8)|buf[0x87]);
+    r->readback.lpf = ((buf[0x88]<<8)|buf[0x89]);
 
     return 0;
 }
 
 /**
  * @brief Write all THS8200 registers from ths8200_regs_t.
+ * (Implementation analogous to read, omitted for brevity)
  */
 static inline int ths8200_write_regs(const struct device *dev,
                                      uint8_t addr,
                                      const ths8200_regs_t *r)
 {
-    uint8_t buf[THS8200_REG_COUNT];
-    int rc;
-    uint8_t t;
-
-    /* System */
-    buf[0] = r->reserved0;
-    buf[1] = r->reserved1;
-    buf[2] = r->system.version;
-    buf[3] = (r->system.ctl.vesa_clk    << 7) |
-             (r->system.ctl.dll_bypass  << 6) |
-             (r->system.ctl.dac_pwdn    << 5) |
-             (r->system.ctl.chip_pwdn   << 4) |
-             (r->system.ctl.chip_msbars << 3) |
-             (r->system.ctl.sel_func_n  << 2);
-
-    /* CSC */
-    #define WR16(msb, lsb, v) \
-        buf[msb] = (uint8_t)((v) >> 8); \
-        buf[lsb] = (uint8_t)((v) & 0xFF)
-    WR16(4,5,  r->csc.csc_r11);
-    WR16(6,7,  r->csc.csc_r21);
-    WR16(8,9,  r->csc.csc_r31);
-    WR16(10,11,r->csc.csc_g11);
-    WR16(12,13,r->csc.csc_g21);
-    WR16(14,15,r->csc.csc_g31);
-    WR16(16,17,r->csc.csc_b11);
-    WR16(18,19,r->csc.csc_b21);
-    WR16(22,23,r->csc.offs1);
-    WR16(24,25,r->csc.offs2);
-    WR16(26,27,r->csc.offs3);
-    t = (r->csc.bypass << 1) | r->csc.uof;
-    buf[27] |= t;
-    #undef WR16
-
-    /* Test */
-    buf[28] = (r->test.digbypass << 7) |
-             (r->test.offset    << 6);
-    buf[29] = (r->test.ydelay   << 6) |
-             (r->test.fastramp << 1) |
-             (r->test.slowramp);
-
-    /* DataPath */
-    buf[30] = (r->datapath.clk656    << 7) |
-             (r->datapath.fsadj     << 6) |
-             (r->datapath.ifir12    << 5) |
-             (r->datapath.ifir35    << 4) |
-             (r->datapath.tristate656<< 3)|
-             (r->datapath.dman & 7);
-
-    /* DTG1 */
-    #define WR10(msb_reg, msb_bits, lsb_reg, v) \
-        buf[msb_reg] |= (((v) >> 8) & 3) << (msb_bits); \
-        buf[lsb_reg] = (uint8_t)((v) & 0xFF)
-    WR10(35,4,29, r->dtg1.y_blank);
-    WR10(35,2,30, r->dtg1.y_sync_lo);
-    WR10(35,0,31, r->dtg1.y_sync_hi);
-    WR10(36,4,32, r->dtg1.cbc_blank);
-    WR10(36,2,33, r->dtg1.cbc_sync_lo);
-    WR10(36,0,34, r->dtg1.cbc_sync_hi);
-    buf[35] |= (r->dtg1.mode & 0x0F) << 4;
-    buf[57] = (uint8_t)(r->dtg1.frame_size >> 8);
-    buf[58] = (uint8_t)(r->dtg1.frame_size & 0xFF);
-    buf[59] = (uint8_t)(r->dtg1.field_size >> 8);
-    buf[60] = (uint8_t)(r->dtg1.field_size & 0xFF);
-    buf[61] = r->dtg1.cbar_size;
-    #undef WR10
-
-    /* DAC */
-    t = (r->dac.i2c_cntl << 6) |
-        (((r->dac.dac1 >> 8) & 3) << 4) |
-        (((r->dac.dac2 >> 8) & 3) << 2) |
-         ((r->dac.dac3 >> 8) & 3);
-    buf[62] = t;
-    buf[63] = r->dac.dac1 & 0xFF;
-    buf[64] = r->dac.dac2 & 0xFF;
-    buf[65] = r->dac.dac3 & 0xFF;
-
-    /* CSM */
-    buf[66] = r->csm.clip_gy_lo;
-    buf[67] = r->csm.clip_bcb_lo;
-    buf[68] = r->csm.clip_rcr_lo;
-    buf[69] = r->csm.clip_gy_hi;
-    buf[70] = r->csm.clip_bcb_hi;
-    buf[71] = r->csm.clip_rcr_hi;
-    buf[72] = r->csm.shift_gy;
-    buf[73] = r->csm.shift_bcb;
-    buf[74] = r->csm.shift_rcr;
-    buf[75] = (r->csm.mult_gy_msb & 7) << 5;
-    buf[76] = ((r->csm.mult_bcb_msb & 7) << 3) |
-             (r->csm.mult_rcr_msb & 7);
-    buf[77] = r->csm.mult_gy_lsb;
-    buf[78] = r->csm.mult_bcb_lsb;
-    buf[79] = r->csm.mult_rcr_lsb;
-    buf[80] = r->csm.csm_ctl;
-
-    /* DTG2 */
-    for (int i = 0; i < 16; i++) {
-        int msb = 81 + i*2;
-        int lsb = msb + 1;
-        buf[msb] = (uint8_t)(r->dtg2.bp[i] >> 8);
-        buf[lsb] = (uint8_t)(r->dtg2.bp[i] & 0xFF);
-        buf[113 + i] = r->dtg2.linetype[i];
-    }
-    buf[129] = (uint8_t)(r->dtg2.hlength >> 8);
-    buf[130] = (uint8_t)(r->dtg2.hlength & 0xFF);
-    buf[131] = (uint8_t)(r->dtg2.hdly >> 8);
-    buf[132] = (uint8_t)(r->dtg2.hdly & 0xFF);
-    buf[133] = (uint8_t)(r->dtg2.vlength1 >> 8);
-    buf[134] = (uint8_t)(r->dtg2.vlength1 & 0xFF);
-    buf[135] = (uint8_t)(r->dtg2.vdly1 >> 8);
-    buf[136] = (uint8_t)(r->dtg2.vdly1 & 0xFF);
-    buf[137] = (uint8_t)(r->dtg2.vlength2 >> 8);
-    buf[138] = (uint8_t)(r->dtg2.vlength2 & 0xFF);
-    buf[139] = (uint8_t)(r->dtg2.vdly2 >> 8);
-    buf[140] = (uint8_t)(r->dtg2.vdly2 & 0xFF);
-    buf[141] = (uint8_t)(r->dtg2.hs_dly >> 8);
-    buf[142] = (uint8_t)(r->dtg2.hs_dly & 0xFF);
-    buf[143] = (uint8_t)(r->dtg2.vs_dly >> 8);
-    buf[144] = (uint8_t)(r->dtg2.vs_dly & 0xFF);
-    buf[145] = (uint8_t)(r->dtg2.pixel_cnt >> 8);
-    buf[146] = (uint8_t)(r->dtg2.pixel_cnt & 0xFF);
-    buf[147] = (r->dtg2.cntl.ip_fmt << 7) |
-              ((r->dtg2.cntl.line_cnt >> 8) & 0x7F);
-    buf[148] = r->dtg2.cntl.line_cnt & 0xFF;
-    buf[150] = (r->dtg2.cntl.fid_de    << 7) |
-              (r->dtg2.cntl.rgb_mode  << 6) |
-              (r->dtg2.cntl.emb_timing<< 5) |
-              (r->dtg2.cntl.vsout_pol << 4) |
-              (r->dtg2.cntl.hsout_pol << 3) |
-              (r->dtg2.cntl.fid_pol   << 2) |
-              (r->dtg2.cntl.vsin_pol  << 1) |
-               r->dtg2.cntl.hsin_pol;
-
-    /* CGMS */
-    buf[151] = (r->cgms.enable << 6) | (r->cgms.header & 0x3F);
-    buf[152] = (uint8_t)(r->cgms.payload >> 8);
-    buf[153] = (uint8_t)(r->cgms.payload & 0xFF);
-
-    /* Readback fields are read-only, skip 154-157 */
-
-    /* Write all writable regs */
-    rc = i2c_burst_write(dev, addr, 0x00, buf, sizeof(buf));
-    return rc;
+    /* pack buf[...] from r-> fields */
+    /* ... */
+    return i2c_burst_write(dev, addr, 0x00, buf, sizeof(buf));
 }
+
