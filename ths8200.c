@@ -345,13 +345,13 @@ int ths8200_write_regs(const struct device *dev,
     buf[0x84] = (r->cgms.payload>>8) & 0xFF;
     buf[0x85] = r->cgms.payload & 0xFF;
 
-    /* Readback (write ignored) */
-    buf[0x86] = (r->readback.ppl>>8) & 0xFF;
-    buf[0x87] = r->readback.ppl & 0xFF;
-    buf[0x88] = (r->readback.lpf>>8) & 0xFF;
-    buf[0x89] = r->readback.lpf & 0xFF;
+    /*
+     * Registers 0x86–0x89 provide readback data only and must not be
+     * written.  Registers 0x00–0x01 are reserved.  Skip these regions when
+     * programming the device.
+     */
 
-    return i2c_burst_write(dev, addr, 0x00, buf, sizeof(buf));
+    return i2c_burst_write(dev, addr, 0x02, buf + 0x02, 0x85 - 0x02 + 1);
 }
 
 static inline const char *boolstr(bool v) { return v ? "true" : "false"; }
@@ -368,7 +368,8 @@ void ths8200_print_regs(const ths8200_regs_t *r)
 printf("CSC:\n");
 #define PR_COEF(name) \
     printf(" %s = %.3f\n", #name, \
-           r->csc.name##_int + r->csc.name##_frac / 256.0f)
+           r->csc.name##_int + r->csc.name##_frac / 256.0)
+
 PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
 PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
 PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
