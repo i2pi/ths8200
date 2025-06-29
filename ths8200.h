@@ -163,5 +163,10 @@ typedef struct {
     } readback;
 } ths8200_regs_t;
 
+/**
+ * @brief Print contents of ths8200_regs_t for debugging.
+ */
+void ths8200_print_regs(const ths8200_regs_t *r);
+
 #endif /* THS8200_REGS_H */
 
