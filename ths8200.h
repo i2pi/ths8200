@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+struct device; /* forward declaration for I2C access */
+
 /**
  * @file ths8200_regs.h
  * @brief Complete THS8200 DAC register map as nested C structures.
@@ -164,6 +166,12 @@ typedef struct {
  * @brief Print contents of ths8200_regs_t for debugging.
  */
 void ths8200_print_regs(const ths8200_regs_t *r);
+
+/* Read/Write the complete register set over I2C */
+int ths8200_read_regs(const struct device *dev, uint8_t addr,
+                      ths8200_regs_t *r);
+int ths8200_write_regs(const struct device *dev, uint8_t addr,
+                       const ths8200_regs_t *r);
 
 #endif /* THS8200_REGS_H */
 

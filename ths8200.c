@@ -15,9 +15,9 @@ int i2c_burst_read(const struct device *dev, uint8_t addr,
 /**
  * @brief Read all THS8200 registers into ths8200_regs_t.
  */
-static inline int ths8200_read_regs(const struct device *dev,
-                                    uint8_t addr,
-                                    ths8200_regs_t *r)
+int ths8200_read_regs(const struct device *dev,
+                      uint8_t addr,
+                      ths8200_regs_t *r)
 {
     uint8_t buf[THS8200_REG_COUNT];
     int rc = i2c_burst_read(dev, addr, 0x00, buf, sizeof(buf));
@@ -178,9 +178,9 @@ static inline int ths8200_read_regs(const struct device *dev,
  * @brief Write all THS8200 registers from ths8200_regs_t.
  * (Implementation analogous to read, omitted for brevity)
  */
-static inline int ths8200_write_regs(const struct device *dev,
-                                     uint8_t addr,
-                                     const ths8200_regs_t *r)
+int ths8200_write_regs(const struct device *dev,
+                       uint8_t addr,
+                       const ths8200_regs_t *r)
 {
     uint8_t buf[THS8200_REG_COUNT] = {0};
 
