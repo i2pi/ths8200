@@ -113,12 +113,9 @@ typedef struct {
         uint8_t shift_gy;     /**< @0x47 */
         uint8_t shift_cb;     /**< @0x48 */
         uint8_t shift_cr;     /**< @0x49 */
-        uint8_t mult_gy_msb;  /**< @0x4A bits7-5 */
-        uint8_t mult_cb_msb;  /**< @0x4B bits5-3 */
-        uint8_t mult_cr_msb;  /**< @0x4B bits2-0 */
-        uint8_t mult_gy_lsb;  /**< @0x4C */
-        uint8_t mult_cb_lsb;  /**< @0x4D */
-        uint8_t mult_cr_lsb;  /**< @0x4E */
+        uint16_t mult_gy;     /**< 11-bit: 0x4A[7:5] MSB | 0x4C LSB */
+        uint16_t mult_cb;     /**< 11-bit: 0x4B[5:3] MSB | 0x4D LSB */
+        uint16_t mult_cr;     /**< 11-bit: 0x4B[2:0] MSB | 0x4E LSB */
         uint8_t csm_ctrl;     /**< @0x4F */
     } csm;
 

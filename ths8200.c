@@ -123,12 +123,9 @@ static inline int ths8200_read_regs(const struct device *dev,
     r->csm.shift_gy   = buf[0x47];
     r->csm.shift_cb   = buf[0x48];
     r->csm.shift_cr   = buf[0x49];
-    r->csm.mult_gy_msb= (buf[0x4A]>>5)&0x07;
-    r->csm.mult_cb_msb= (buf[0x4B]>>5)&0x07;
-    r->csm.mult_cr_msb=  buf[0x4B]&0x07;
-    r->csm.mult_gy_lsb= buf[0x4C];
-    r->csm.mult_cb_lsb= buf[0x4D];
-    r->csm.mult_cr_lsb= buf[0x4E];
+    r->csm.mult_gy = (((buf[0x4A] >> 5) & 0x07) << 8) | buf[0x4C];
+    r->csm.mult_cb = (((buf[0x4B] >> 5) & 0x07) << 8) | buf[0x4D];
+    r->csm.mult_cr = ((buf[0x4B] & 0x07) << 8) | buf[0x4E];
     r->csm.csm_ctrl   = buf[0x4F];
 
     /* DTG2 */
@@ -291,12 +288,12 @@ static inline int ths8200_write_regs(const struct device *dev,
     buf[0x47] = r->csm.shift_gy;
     buf[0x48] = r->csm.shift_cb;
     buf[0x49] = r->csm.shift_cr;
-    buf[0x4A] = (r->csm.mult_gy_msb & 0x07) << 5;
-    buf[0x4B] = ((r->csm.mult_cb_msb & 0x07) << 5) |
-                (r->csm.mult_cr_msb & 0x07);
-    buf[0x4C] = r->csm.mult_gy_lsb;
-    buf[0x4D] = r->csm.mult_cb_lsb;
-    buf[0x4E] = r->csm.mult_cr_lsb;
+    buf[0x4A] = ((r->csm.mult_gy >> 8) & 0x07) << 5;
+    buf[0x4B] = (((r->csm.mult_cb >> 8) & 0x07) << 5) |
+                ((r->csm.mult_cr >> 8) & 0x07);
+    buf[0x4C] = r->csm.mult_gy & 0xFF;
+    buf[0x4D] = r->csm.mult_cb & 0xFF;
+    buf[0x4E] = r->csm.mult_cr & 0xFF;
     buf[0x4F] = r->csm.csm_ctrl;
 
     /* DTG2 breakpoints */
@@ -368,13 +365,14 @@ void ths8200_print_regs(const ths8200_regs_t *r)
            boolstr(r->system.ctl.chip_msbars), boolstr(r->system.ctl.sel_func_n),
            boolstr(r->system.ctl.arst_func_n));
 
-    printf("CSC:\n");
+printf("CSC:\n");
 #define PR_COEF(name) \
-    printf(" %s = %d + 0x%02X/256\n", #name, r->csc.name##_int, r->csc.name##_frac)
-    PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
-    PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
-    PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
-    PR_COEF(yoff); PR_COEF(cboff);
+    printf(" %s = %.3f\n", #name, \
+           r->csc.name##_int + r->csc.name##_frac / 256.0f)
+PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
+PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
+PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
+PR_COEF(yoff); PR_COEF(cboff);
 #undef PR_COEF
     printf(" csc_bypass=%s csc_uof=%s\n",
            boolstr(r->csc.csc_bypass), boolstr(r->csc.csc_uof));
@@ -395,10 +393,10 @@ void ths8200_print_regs(const ths8200_regs_t *r)
            r->dtg1.cbcr_blank, r->dtg1.cbcr_sync_lo, r->dtg1.cbcr_sync_hi);
     printf(" dtg1_on=%s pass_thru=%s mode=0x%X\n",
            boolstr(r->dtg1.dtg1_on), boolstr(r->dtg1.pass_thru), r->dtg1.mode);
-    printf(" spec_a=0x%02X spec_b=0x%02X spec_c=0x%02X spec_d=0x%02X spec_d1=0x%02X spec_e=0x%02X\n",
+    printf(" spec_a=%u spec_b=%u spec_c=%u spec_d=%u spec_d1=%u spec_e=%u\n",
            r->dtg1.spec_a, r->dtg1.spec_b, r->dtg1.spec_c, r->dtg1.spec_d,
            r->dtg1.spec_d1, r->dtg1.spec_e);
-    printf(" spec_h=%u spec_i=%u spec_k=%u spec_k1=0x%02X\n",
+    printf(" spec_h=%u spec_i=%u spec_k=%u spec_k1=%u\n",
            r->dtg1.spec_h, r->dtg1.spec_i, r->dtg1.spec_k, r->dtg1.spec_k1);
     printf(" spec_g=%u total_pixels=%u field_flip=%s line_cnt=%u\n",
            r->dtg1.spec_g, r->dtg1.total_pixels, boolstr(r->dtg1.field_flip), r->dtg1.line_cnt);
@@ -412,10 +410,8 @@ void ths8200_print_regs(const ths8200_regs_t *r)
     printf(" clip_gy_lo=%u clip_cb_lo=%u clip_cr_lo=%u\n", r->csm.clip_gy_lo, r->csm.clip_cb_lo, r->csm.clip_cr_lo);
     printf(" clip_gy_hi=%u clip_cb_hi=%u clip_cr_hi=%u\n", r->csm.clip_gy_hi, r->csm.clip_cb_hi, r->csm.clip_cr_hi);
     printf(" shift_gy=%u shift_cb=%u shift_cr=%u\n", r->csm.shift_gy, r->csm.shift_cb, r->csm.shift_cr);
-    printf(" mult_gy=%u.%u mult_cb=%u.%u mult_cr=%u.%u csm_ctrl=0x%02X\n",
-           r->csm.mult_gy_msb, r->csm.mult_gy_lsb,
-           r->csm.mult_cb_msb, r->csm.mult_cb_lsb,
-           r->csm.mult_cr_msb, r->csm.mult_cr_lsb,
+    printf(" mult_gy=%u mult_cb=%u mult_cr=%u csm_ctrl=0x%02X\n",
+           r->csm.mult_gy, r->csm.mult_cb, r->csm.mult_cr,
            r->csm.csm_ctrl);
 
     printf("DTG2 breakpoints:\n");
