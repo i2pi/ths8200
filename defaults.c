@@ -54,5 +54,4 @@ void ths8200_set_defaults(ths8200_regs_t *r)
     r->dtg2.ctrl.fid_pol   = true;
     r->dtg2.ctrl.vs_in     = true;
     r->dtg2.ctrl.hs_in     = true;
-
 }

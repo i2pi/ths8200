@@ -83,7 +83,7 @@ typedef struct {
         uint8_t  spec_d;       /**< @0x28 */
         uint8_t  spec_d1;      /**< @0x29 */
         uint8_t  spec_e;       /**< @0x2A */
-        uint16_t spec_h;       /**< 0x2B[3:2] & 0x2C */
+        uint16_t spec_h;       /**< 0x2B[1:0] & 0x2C */
         uint16_t spec_i;       /**< 0x2D[3:0] & 0x2E */
         uint16_t spec_k;       /**< 0x2F & 0x30[2:0] */
         uint8_t  spec_k1;      /**< @0x31 */
@@ -136,7 +136,7 @@ typedef struct {
         uint16_t pixel_cnt;   /**< dtg2_pixel_cnt (16-bit r/o): 0x7D–0x7E */
         struct {
             bool    ip_fmt;    /**< @0x7F bit7 */
-            uint16_t line_cnt; /**< dtg2_line_cnt (11-bit): 0x7F[6:0]&0x80 */
+            uint16_t line_cnt; /**< dtg2_line_cnt (11-bit): 0x7F[2:0] & 0x80 */
             bool    fid_de;    /**< @0x82 bit7 */
             bool    rgb_mode;  /**< @0x82 bit6 */
             bool    emb_timing;/**< @0x82 bit5 */
@@ -150,9 +150,9 @@ typedef struct {
 
     /** 0x83–0x85: CGMS Control */
     struct {
-        bool    enable;      /**< @0x83 bit6 */
+        bool    enable;      /**< reserved, always 0 */
         uint8_t header;      /**< @0x83 bits5-0 */
-        uint16_t payload;    /**< @0x84–0x85 (14-bit) */
+        uint16_t payload;    /**< @0x84–0x85 bits5-0 and 0x85 */
     } cgms;
 
     /** 0x86–0x89: Readback */

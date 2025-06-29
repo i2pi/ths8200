@@ -93,7 +93,7 @@ int ths8200_read_regs(const struct device *dev,
     r->dtg1.spec_d     = buf[0x28];
     r->dtg1.spec_d1    = buf[0x29];
     r->dtg1.spec_e     = buf[0x2A];
-    r->dtg1.spec_h     = (((buf[0x2B]>>2)&0x03)<<8) | buf[0x2C];
+    r->dtg1.spec_h     = (((buf[0x2B] & 0x03) << 8) | buf[0x2C]);
     r->dtg1.spec_i     = (((buf[0x2D]&0x0F)<<8) | buf[0x2E]);
     r->dtg1.spec_k     = (((buf[0x30]&0x07)<<8) | buf[0x2F]);
     r->dtg1.spec_k1    = buf[0x31];
@@ -150,7 +150,7 @@ int ths8200_read_regs(const struct device *dev,
     r->dtg2.pixel_cnt= ((buf[0x7D]<<8)|buf[0x7E]);
     t=buf[0x7F];
     r->dtg2.ctrl.ip_fmt    = (t>>7)&1;
-    r->dtg2.ctrl.line_cnt  = (((t&0x7F)<<8)|buf[0x80]);
+    r->dtg2.ctrl.line_cnt  = (((t & 0x07) << 8) | buf[0x80]);
     t=buf[0x82];
     r->dtg2.ctrl.fid_de    = (t>>7)&1;
     r->dtg2.ctrl.rgb_mode  = (t>>6)&1;
@@ -163,9 +163,9 @@ int ths8200_read_regs(const struct device *dev,
 
     /* CGMS */
     t = buf[0x83];
-    r->cgms.enable = (t>>6)&1;
-    r->cgms.header = t &0x3F;
-    r->cgms.payload= ((buf[0x84]<<8)|buf[0x85]);
+    r->cgms.header = t & 0x3F;
+    r->cgms.enable = false;
+    r->cgms.payload = (((buf[0x84] & 0x3F) << 8) | buf[0x85]);
 
     /* Readback */
     r->readback.ppl = ((buf[0x86]<<8)|buf[0x87]);
@@ -248,7 +248,7 @@ int ths8200_write_regs(const struct device *dev,
     buf[0x28] = r->dtg1.spec_d;
     buf[0x29] = r->dtg1.spec_d1;
     buf[0x2A] = r->dtg1.spec_e;
-    buf[0x2B] = ((r->dtg1.spec_h>>8)&0x03)<<2;
+    buf[0x2B] = (r->dtg1.spec_h >> 8) & 0x03;
     buf[0x2C] = r->dtg1.spec_h & 0xFF;
     buf[0x2D] = (r->dtg1.spec_i>>8)&0x0F;
     buf[0x2E] = r->dtg1.spec_i & 0xFF;
@@ -328,7 +328,7 @@ int ths8200_write_regs(const struct device *dev,
     buf[0x7D] = (r->dtg2.pixel_cnt>>8) & 0xFF;
     buf[0x7E] = r->dtg2.pixel_cnt & 0xFF;
     buf[0x7F] = (r->dtg2.ctrl.ip_fmt ? 0x80 : 0) |
-                ((r->dtg2.ctrl.line_cnt>>8) & 0x7F);
+                ((r->dtg2.ctrl.line_cnt >> 8) & 0x07);
     buf[0x80] = r->dtg2.ctrl.line_cnt & 0xFF;
     buf[0x82] = (r->dtg2.ctrl.fid_de   ? 0x80 : 0) |
                 (r->dtg2.ctrl.rgb_mode ? 0x40 : 0) |
@@ -340,9 +340,8 @@ int ths8200_write_regs(const struct device *dev,
                 (r->dtg2.ctrl.hs_in    ? 0x01 : 0);
 
     /* CGMS control */
-    buf[0x83] = (r->cgms.enable ? 0x40 : 0) |
-                (r->cgms.header & 0x3F);
-    buf[0x84] = (r->cgms.payload>>8) & 0xFF;
+    buf[0x83] = (r->cgms.header & 0x3F);
+    buf[0x84] = (r->cgms.payload >> 8) & 0x3F;
     buf[0x85] = r->cgms.payload & 0xFF;
 
     /*
@@ -351,7 +350,11 @@ int ths8200_write_regs(const struct device *dev,
      * programming the device.
      */
 
-    return i2c_burst_write(dev, addr, 0x02, buf + 0x02, 0x85 - 0x02 + 1);
+    int rc;
+    rc = i2c_burst_write(dev, addr, 0x03, buf + 0x03, 0x80 - 0x03 + 1);
+    if (rc)
+        return rc;
+    return i2c_burst_write(dev, addr, 0x82, buf + 0x82, 0x85 - 0x82 + 1);
 }
 
 static inline const char *boolstr(bool v) { return v ? "true" : "false"; }
@@ -369,7 +372,6 @@ printf("CSC:\n");
 #define PR_COEF(name) \
     printf(" %s = %.3f\n", #name, \
            r->csc.name##_int + r->csc.name##_frac / 256.0)
-
 PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
 PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
 PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
@@ -433,8 +435,8 @@ PR_COEF(yoff); PR_COEF(cboff);
            boolstr(r->dtg2.ctrl.hs_out), boolstr(r->dtg2.ctrl.fid_pol),
            boolstr(r->dtg2.ctrl.vs_in), boolstr(r->dtg2.ctrl.hs_in));
 
-    printf("CGMS: enable=%s header=0x%02X payload=%u\n",
-           boolstr(r->cgms.enable), r->cgms.header, r->cgms.payload);
+    printf("CGMS: header=0x%02X payload=%u\n",
+           r->cgms.header, r->cgms.payload);
 
     printf("Readback: ppl=%u lpf=%u\n",
            r->readback.ppl, r->readback.lpf);
