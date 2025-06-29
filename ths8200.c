@@ -185,8 +185,175 @@ static inline int ths8200_write_regs(const struct device *dev,
                                      uint8_t addr,
                                      const ths8200_regs_t *r)
 {
-    /* pack buf[...] from r-> fields */
-    /* ... */
+    uint8_t buf[THS8200_REG_COUNT] = {0};
+
+    /* System control */
+    buf[0x02] = r->system.version;
+    buf[0x03] = (r->system.ctl.vesa_clk   ? 0x80 : 0) |
+                (r->system.ctl.dll_bypass ? 0x40 : 0) |
+                (r->system.ctl.dac_pwdn   ? 0x20 : 0) |
+                (r->system.ctl.chip_pwdn  ? 0x10 : 0) |
+                (r->system.ctl.chip_msbars? 0x08 : 0) |
+                (r->system.ctl.sel_func_n ? 0x04 : 0) |
+                (r->system.ctl.arst_func_n? 0x02 : 0);
+
+    /* CSC coefficients and offsets (Q2.8) */
+#define WR_COEF(msb, lsb, i_part, f_part) \
+    buf[msb] = (uint8_t)r->csc.i_part; \
+    buf[lsb] = r->csc.f_part
+    WR_COEF(0x04,0x05, r2r_int, r2r_frac);
+    WR_COEF(0x06,0x07, r2g_int, r2g_frac);
+    WR_COEF(0x08,0x09, r2b_int, r2b_frac);
+    WR_COEF(0x0A,0x0B, g2r_int, g2r_frac);
+    WR_COEF(0x0C,0x0D, g2g_int, g2g_frac);
+    WR_COEF(0x0E,0x0F, g2b_int, g2b_frac);
+    WR_COEF(0x10,0x11, b2r_int, b2r_frac);
+    WR_COEF(0x12,0x13, b2g_int, b2g_frac);
+    WR_COEF(0x14,0x15, b2b_int, b2b_frac);
+    WR_COEF(0x16,0x17, yoff_int, yoff_frac);
+    WR_COEF(0x18,0x19, cboff_int, cboff_frac);
+#undef WR_COEF
+    buf[0x19] = (r->csc.csc_bypass ? 0x02 : 0) |
+                (r->csc.csc_uof    ? 0x01 : 0);
+
+    /* Test control */
+    buf[0x1A] = (r->test.digbypass ? 0x80 : 0) |
+                (r->test.force_off ? 0x40 : 0);
+    buf[0x1B] = ((r->test.ydelay & 0x03) << 6) |
+                (r->test.fastramp ? 0x02 : 0) |
+                (r->test.slowramp ? 0x01 : 0);
+
+    /* Data path */
+    buf[0x1C] = (r->datapath.clk656 ? 0x80 : 0) |
+                (r->datapath.fsadj  ? 0x40 : 0) |
+                (r->datapath.ifir12 ? 0x20 : 0) |
+                (r->datapath.ifir35 ? 0x10 : 0) |
+                (r->datapath.tri656 ? 0x08 : 0) |
+                (r->datapath.format & 0x07);
+
+    /* DTG1 values */
+    buf[0x1D] = r->dtg1.y_blank & 0xFF;
+    buf[0x1E] = r->dtg1.y_sync_lo & 0xFF;
+    buf[0x1F] = r->dtg1.y_sync_hi & 0xFF;
+    buf[0x20] = r->dtg1.cbcr_blank & 0xFF;
+    buf[0x21] = r->dtg1.cbcr_sync_lo & 0xFF;
+    buf[0x22] = r->dtg1.cbcr_sync_hi & 0xFF;
+    buf[0x23] = ((r->dtg1.y_blank>>8)&0x03)<<4 |
+                ((r->dtg1.y_sync_lo>>8)&0x03)<<2 |
+                ((r->dtg1.y_sync_hi>>8)&0x03);
+    buf[0x24] = ((r->dtg1.cbcr_blank>>8)&0x03)<<4 |
+                ((r->dtg1.cbcr_sync_lo>>8)&0x03)<<2 |
+                ((r->dtg1.cbcr_sync_hi>>8)&0x03);
+
+    buf[0x25] = r->dtg1.spec_a;
+    buf[0x26] = r->dtg1.spec_b;
+    buf[0x27] = r->dtg1.spec_c;
+    buf[0x28] = r->dtg1.spec_d;
+    buf[0x29] = r->dtg1.spec_d1;
+    buf[0x2A] = r->dtg1.spec_e;
+    buf[0x2B] = ((r->dtg1.spec_h>>8)&0x03)<<2;
+    buf[0x2C] = r->dtg1.spec_h & 0xFF;
+    buf[0x2D] = (r->dtg1.spec_i>>8)&0x0F;
+    buf[0x2E] = r->dtg1.spec_i & 0xFF;
+    buf[0x2F] = r->dtg1.spec_k & 0xFF;
+    buf[0x30] = (r->dtg1.spec_k>>8)&0x07;
+    buf[0x31] = r->dtg1.spec_k1;
+    buf[0x32] = r->dtg1.spec_g & 0xFF;
+    buf[0x33] = (r->dtg1.spec_g>>8)&0x0F;
+    buf[0x34] = (r->dtg1.total_pixels>>8)&0x1F;
+    buf[0x35] = r->dtg1.total_pixels & 0xFF;
+    buf[0x36] = (r->dtg1.field_flip?0x80:0) | ((r->dtg1.line_cnt>>8)&0x07);
+    buf[0x37] = r->dtg1.line_cnt & 0xFF;
+    buf[0x38] = (r->dtg1.dtg1_on?0x80:0) | (r->dtg1.pass_thru?0x10:0) |
+                (r->dtg1.mode & 0x0F);
+    buf[0x39] = ((r->dtg1.frame_size>>8)&0x07)<<4 |
+                ((r->dtg1.field_size>>8)&0x07);
+    buf[0x3A] = r->dtg1.frame_size & 0xFF;
+    buf[0x3B] = r->dtg1.field_size & 0xFF;
+    buf[0x3C] = r->dtg1.cbar_size;
+
+    /* DAC control */
+    buf[0x3D] = (r->dac.i2c_ctrl?0x40:0) |
+                ((r->dac.dac1>>8)&0x03)<<4 |
+                ((r->dac.dac2>>8)&0x03)<<2 |
+                ((r->dac.dac3>>8)&0x03);
+    buf[0x3E] = r->dac.dac1 & 0xFF;
+    buf[0x3F] = r->dac.dac2 & 0xFF;
+    buf[0x40] = r->dac.dac3 & 0xFF;
+
+    /* Clip/Scale/Multiplier */
+    buf[0x41] = r->csm.clip_gy_lo;
+    buf[0x42] = r->csm.clip_cb_lo;
+    buf[0x43] = r->csm.clip_cr_lo;
+    buf[0x44] = r->csm.clip_gy_hi;
+    buf[0x45] = r->csm.clip_cb_hi;
+    buf[0x46] = r->csm.clip_cr_hi;
+    buf[0x47] = r->csm.shift_gy;
+    buf[0x48] = r->csm.shift_cb;
+    buf[0x49] = r->csm.shift_cr;
+    buf[0x4A] = (r->csm.mult_gy_msb & 0x07) << 5;
+    buf[0x4B] = ((r->csm.mult_cb_msb & 0x07) << 5) |
+                (r->csm.mult_cr_msb & 0x07);
+    buf[0x4C] = r->csm.mult_gy_lsb;
+    buf[0x4D] = r->csm.mult_cb_lsb;
+    buf[0x4E] = r->csm.mult_cr_lsb;
+    buf[0x4F] = r->csm.csm_ctrl;
+
+    /* DTG2 breakpoints */
+    for (int i = 0; i < 16; i++) {
+        buf[0x50 + i] = (r->dtg2.bp[i] >> 8) & 0x03;
+        buf[0x60 + i] = r->dtg2.bp[i] & 0xFF;
+    }
+    for (int i = 0; i < 16; i++) {
+        uint8_t idx = 0x68 + (i/2);
+        if ((i & 1) == 0)
+            buf[idx] = (r->dtg2.linetype[i] & 0x0F) << 4;
+        else
+            buf[idx] |= (r->dtg2.linetype[i] & 0x0F);
+    }
+
+    buf[0x70] = r->dtg2.hlength & 0xFF;
+    buf[0x71] = ((r->dtg2.hdly>>8)&0x1F) |
+                ((r->dtg2.hlength>>8)&0x03);
+    buf[0x72] = r->dtg2.hdly & 0xFF;
+    buf[0x73] = r->dtg2.vlength1 & 0xFF;
+    buf[0x74] = ((r->dtg2.vdly1>>8)&0x07) |
+                ((r->dtg2.vlength1>>8)&0x03);
+    buf[0x75] = r->dtg2.vdly1 & 0xFF;
+    buf[0x76] = r->dtg2.vlength2 & 0xFF;
+    buf[0x77] = (((r->dtg2.vdly2>>8)&0x03) << 6) |
+                ((r->dtg2.vlength2>>8)&0x03);
+    buf[0x78] = r->dtg2.vdly2 & 0xFF;
+    buf[0x79] = (r->dtg2.hsind>>8) & 0x1F;
+    buf[0x7A] = r->dtg2.hsind & 0xFF;
+    buf[0x7B] = (r->dtg2.vsind>>8) & 0x07;
+    buf[0x7C] = r->dtg2.vsind & 0xFF;
+    buf[0x7D] = (r->dtg2.pixel_cnt>>8) & 0xFF;
+    buf[0x7E] = r->dtg2.pixel_cnt & 0xFF;
+    buf[0x7F] = (r->dtg2.ctrl.ip_fmt ? 0x80 : 0) |
+                ((r->dtg2.ctrl.line_cnt>>8) & 0x7F);
+    buf[0x80] = r->dtg2.ctrl.line_cnt & 0xFF;
+    buf[0x82] = (r->dtg2.ctrl.fid_de   ? 0x80 : 0) |
+                (r->dtg2.ctrl.rgb_mode ? 0x40 : 0) |
+                (r->dtg2.ctrl.emb_timing?0x20 : 0) |
+                (r->dtg2.ctrl.vs_out   ? 0x10 : 0) |
+                (r->dtg2.ctrl.hs_out   ? 0x08 : 0) |
+                (r->dtg2.ctrl.fid_pol  ? 0x04 : 0) |
+                (r->dtg2.ctrl.vs_in    ? 0x02 : 0) |
+                (r->dtg2.ctrl.hs_in    ? 0x01 : 0);
+
+    /* CGMS control */
+    buf[0x83] = (r->cgms.enable ? 0x40 : 0) |
+                (r->cgms.header & 0x3F);
+    buf[0x84] = (r->cgms.payload>>8) & 0xFF;
+    buf[0x85] = r->cgms.payload & 0xFF;
+
+    /* Readback (write ignored) */
+    buf[0x86] = (r->readback.ppl>>8) & 0xFF;
+    buf[0x87] = r->readback.ppl & 0xFF;
+    buf[0x88] = (r->readback.lpf>>8) & 0xFF;
+    buf[0x89] = r->readback.lpf & 0xFF;
+
     return i2c_burst_write(dev, addr, 0x00, buf, sizeof(buf));
 }
 
