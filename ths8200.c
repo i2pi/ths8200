@@ -15,9 +15,9 @@ int i2c_burst_read(const struct device *dev, uint8_t addr,
 /**
  * @brief Read all THS8200 registers into ths8200_regs_t.
  */
-static inline int ths8200_read_regs(const struct device *dev,
-                                    uint8_t addr,
-                                    ths8200_regs_t *r)
+int ths8200_read_regs(const struct device *dev,
+                      uint8_t addr,
+                      ths8200_regs_t *r)
 {
     uint8_t buf[THS8200_REG_COUNT];
     int rc = i2c_burst_read(dev, addr, 0x00, buf, sizeof(buf));
@@ -93,7 +93,7 @@ static inline int ths8200_read_regs(const struct device *dev,
     r->dtg1.spec_d     = buf[0x28];
     r->dtg1.spec_d1    = buf[0x29];
     r->dtg1.spec_e     = buf[0x2A];
-    r->dtg1.spec_h     = (((buf[0x2B]>>2)&0x03)<<8) | buf[0x2C];
+    r->dtg1.spec_h     = (((buf[0x2B] & 0x03) << 8) | buf[0x2C]);
     r->dtg1.spec_i     = (((buf[0x2D]&0x0F)<<8) | buf[0x2E]);
     r->dtg1.spec_k     = (((buf[0x30]&0x07)<<8) | buf[0x2F]);
     r->dtg1.spec_k1    = buf[0x31];
@@ -123,12 +123,9 @@ static inline int ths8200_read_regs(const struct device *dev,
     r->csm.shift_gy   = buf[0x47];
     r->csm.shift_cb   = buf[0x48];
     r->csm.shift_cr   = buf[0x49];
-    r->csm.mult_gy_msb= (buf[0x4A]>>5)&0x07;
-    r->csm.mult_cb_msb= (buf[0x4B]>>5)&0x07;
-    r->csm.mult_cr_msb=  buf[0x4B]&0x07;
-    r->csm.mult_gy_lsb= buf[0x4C];
-    r->csm.mult_cb_lsb= buf[0x4D];
-    r->csm.mult_cr_lsb= buf[0x4E];
+    r->csm.mult_gy = (((buf[0x4A] >> 5) & 0x07) << 8) | buf[0x4C];
+    r->csm.mult_cb = (((buf[0x4B] >> 4) & 0x07) << 8) | buf[0x4D];
+    r->csm.mult_cr = ((buf[0x4B] & 0x07) << 8) | buf[0x4E];
     r->csm.csm_ctrl   = buf[0x4F];
 
     /* DTG2 */
@@ -153,7 +150,7 @@ static inline int ths8200_read_regs(const struct device *dev,
     r->dtg2.pixel_cnt= ((buf[0x7D]<<8)|buf[0x7E]);
     t=buf[0x7F];
     r->dtg2.ctrl.ip_fmt    = (t>>7)&1;
-    r->dtg2.ctrl.line_cnt  = (((t&0x7F)<<8)|buf[0x80]);
+    r->dtg2.ctrl.line_cnt  = (((t & 0x07) << 8) | buf[0x80]);
     t=buf[0x82];
     r->dtg2.ctrl.fid_de    = (t>>7)&1;
     r->dtg2.ctrl.rgb_mode  = (t>>6)&1;
@@ -166,9 +163,9 @@ static inline int ths8200_read_regs(const struct device *dev,
 
     /* CGMS */
     t = buf[0x83];
-    r->cgms.enable = (t>>6)&1;
-    r->cgms.header = t &0x3F;
-    r->cgms.payload= ((buf[0x84]<<8)|buf[0x85]);
+    r->cgms.header = t & 0x3F;
+    r->cgms.enable = false;
+    r->cgms.payload = (((buf[0x84] & 0x3F) << 8) | buf[0x85]);
 
     /* Readback */
     r->readback.ppl = ((buf[0x86]<<8)|buf[0x87]);
@@ -181,9 +178,9 @@ static inline int ths8200_read_regs(const struct device *dev,
  * @brief Write all THS8200 registers from ths8200_regs_t.
  * (Implementation analogous to read, omitted for brevity)
  */
-static inline int ths8200_write_regs(const struct device *dev,
-                                     uint8_t addr,
-                                     const ths8200_regs_t *r)
+int ths8200_write_regs(const struct device *dev,
+                       uint8_t addr,
+                       const ths8200_regs_t *r)
 {
     uint8_t buf[THS8200_REG_COUNT] = {0};
 
@@ -251,7 +248,7 @@ static inline int ths8200_write_regs(const struct device *dev,
     buf[0x28] = r->dtg1.spec_d;
     buf[0x29] = r->dtg1.spec_d1;
     buf[0x2A] = r->dtg1.spec_e;
-    buf[0x2B] = ((r->dtg1.spec_h>>8)&0x03)<<2;
+    buf[0x2B] = (r->dtg1.spec_h >> 8) & 0x03;
     buf[0x2C] = r->dtg1.spec_h & 0xFF;
     buf[0x2D] = (r->dtg1.spec_i>>8)&0x0F;
     buf[0x2E] = r->dtg1.spec_i & 0xFF;
@@ -291,12 +288,12 @@ static inline int ths8200_write_regs(const struct device *dev,
     buf[0x47] = r->csm.shift_gy;
     buf[0x48] = r->csm.shift_cb;
     buf[0x49] = r->csm.shift_cr;
-    buf[0x4A] = (r->csm.mult_gy_msb & 0x07) << 5;
-    buf[0x4B] = ((r->csm.mult_cb_msb & 0x07) << 5) |
-                (r->csm.mult_cr_msb & 0x07);
-    buf[0x4C] = r->csm.mult_gy_lsb;
-    buf[0x4D] = r->csm.mult_cb_lsb;
-    buf[0x4E] = r->csm.mult_cr_lsb;
+    buf[0x4A] = ((r->csm.mult_gy >> 8) & 0x07) << 5;
+    buf[0x4B] = (((r->csm.mult_cb >> 8) & 0x07) << 4) |
+                ((r->csm.mult_cr >> 8) & 0x07);
+    buf[0x4C] = r->csm.mult_gy & 0xFF;
+    buf[0x4D] = r->csm.mult_cb & 0xFF;
+    buf[0x4E] = r->csm.mult_cr & 0xFF;
     buf[0x4F] = r->csm.csm_ctrl;
 
     /* DTG2 breakpoints */
@@ -331,7 +328,7 @@ static inline int ths8200_write_regs(const struct device *dev,
     buf[0x7D] = (r->dtg2.pixel_cnt>>8) & 0xFF;
     buf[0x7E] = r->dtg2.pixel_cnt & 0xFF;
     buf[0x7F] = (r->dtg2.ctrl.ip_fmt ? 0x80 : 0) |
-                ((r->dtg2.ctrl.line_cnt>>8) & 0x7F);
+                ((r->dtg2.ctrl.line_cnt >> 8) & 0x07);
     buf[0x80] = r->dtg2.ctrl.line_cnt & 0xFF;
     buf[0x82] = (r->dtg2.ctrl.fid_de   ? 0x80 : 0) |
                 (r->dtg2.ctrl.rgb_mode ? 0x40 : 0) |
@@ -343,18 +340,21 @@ static inline int ths8200_write_regs(const struct device *dev,
                 (r->dtg2.ctrl.hs_in    ? 0x01 : 0);
 
     /* CGMS control */
-    buf[0x83] = (r->cgms.enable ? 0x40 : 0) |
-                (r->cgms.header & 0x3F);
-    buf[0x84] = (r->cgms.payload>>8) & 0xFF;
+    buf[0x83] = (r->cgms.header & 0x3F);
+    buf[0x84] = (r->cgms.payload >> 8) & 0x3F;
     buf[0x85] = r->cgms.payload & 0xFF;
 
-    /* Readback (write ignored) */
-    buf[0x86] = (r->readback.ppl>>8) & 0xFF;
-    buf[0x87] = r->readback.ppl & 0xFF;
-    buf[0x88] = (r->readback.lpf>>8) & 0xFF;
-    buf[0x89] = r->readback.lpf & 0xFF;
+    /*
+     * Registers 0x86–0x89 provide readback data only and must not be
+     * written.  Registers 0x00–0x01 are reserved.  Skip these regions when
+     * programming the device.
+     */
 
-    return i2c_burst_write(dev, addr, 0x00, buf, sizeof(buf));
+    int rc;
+    rc = i2c_burst_write(dev, addr, 0x03, buf + 0x03, 0x80 - 0x03 + 1);
+    if (rc)
+        return rc;
+    return i2c_burst_write(dev, addr, 0x82, buf + 0x82, 0x85 - 0x82 + 1);
 }
 
 static inline const char *boolstr(bool v) { return v ? "true" : "false"; }
@@ -368,13 +368,14 @@ void ths8200_print_regs(const ths8200_regs_t *r)
            boolstr(r->system.ctl.chip_msbars), boolstr(r->system.ctl.sel_func_n),
            boolstr(r->system.ctl.arst_func_n));
 
-    printf("CSC:\n");
+printf("CSC:\n");
 #define PR_COEF(name) \
-    printf(" %s = %d + 0x%02X/256\n", #name, r->csc.name##_int, r->csc.name##_frac)
-    PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
-    PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
-    PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
-    PR_COEF(yoff); PR_COEF(cboff);
+    printf(" %s = %.3f\n", #name, \
+           r->csc.name##_int + r->csc.name##_frac / 256.0)
+PR_COEF(r2r); PR_COEF(r2g); PR_COEF(r2b);
+PR_COEF(g2r); PR_COEF(g2g); PR_COEF(g2b);
+PR_COEF(b2r); PR_COEF(b2g); PR_COEF(b2b);
+PR_COEF(yoff); PR_COEF(cboff);
 #undef PR_COEF
     printf(" csc_bypass=%s csc_uof=%s\n",
            boolstr(r->csc.csc_bypass), boolstr(r->csc.csc_uof));
@@ -395,10 +396,10 @@ void ths8200_print_regs(const ths8200_regs_t *r)
            r->dtg1.cbcr_blank, r->dtg1.cbcr_sync_lo, r->dtg1.cbcr_sync_hi);
     printf(" dtg1_on=%s pass_thru=%s mode=0x%X\n",
            boolstr(r->dtg1.dtg1_on), boolstr(r->dtg1.pass_thru), r->dtg1.mode);
-    printf(" spec_a=0x%02X spec_b=0x%02X spec_c=0x%02X spec_d=0x%02X spec_d1=0x%02X spec_e=0x%02X\n",
+    printf(" spec_a=%u spec_b=%u spec_c=%u spec_d=%u spec_d1=%u spec_e=%u\n",
            r->dtg1.spec_a, r->dtg1.spec_b, r->dtg1.spec_c, r->dtg1.spec_d,
            r->dtg1.spec_d1, r->dtg1.spec_e);
-    printf(" spec_h=%u spec_i=%u spec_k=%u spec_k1=0x%02X\n",
+    printf(" spec_h=%u spec_i=%u spec_k=%u spec_k1=%u\n",
            r->dtg1.spec_h, r->dtg1.spec_i, r->dtg1.spec_k, r->dtg1.spec_k1);
     printf(" spec_g=%u total_pixels=%u field_flip=%s line_cnt=%u\n",
            r->dtg1.spec_g, r->dtg1.total_pixels, boolstr(r->dtg1.field_flip), r->dtg1.line_cnt);
@@ -412,10 +413,8 @@ void ths8200_print_regs(const ths8200_regs_t *r)
     printf(" clip_gy_lo=%u clip_cb_lo=%u clip_cr_lo=%u\n", r->csm.clip_gy_lo, r->csm.clip_cb_lo, r->csm.clip_cr_lo);
     printf(" clip_gy_hi=%u clip_cb_hi=%u clip_cr_hi=%u\n", r->csm.clip_gy_hi, r->csm.clip_cb_hi, r->csm.clip_cr_hi);
     printf(" shift_gy=%u shift_cb=%u shift_cr=%u\n", r->csm.shift_gy, r->csm.shift_cb, r->csm.shift_cr);
-    printf(" mult_gy=%u.%u mult_cb=%u.%u mult_cr=%u.%u csm_ctrl=0x%02X\n",
-           r->csm.mult_gy_msb, r->csm.mult_gy_lsb,
-           r->csm.mult_cb_msb, r->csm.mult_cb_lsb,
-           r->csm.mult_cr_msb, r->csm.mult_cr_lsb,
+    printf(" mult_gy=%u mult_cb=%u mult_cr=%u csm_ctrl=0x%02X\n",
+           r->csm.mult_gy, r->csm.mult_cb, r->csm.mult_cr,
            r->csm.csm_ctrl);
 
     printf("DTG2 breakpoints:\n");
@@ -436,8 +435,8 @@ void ths8200_print_regs(const ths8200_regs_t *r)
            boolstr(r->dtg2.ctrl.hs_out), boolstr(r->dtg2.ctrl.fid_pol),
            boolstr(r->dtg2.ctrl.vs_in), boolstr(r->dtg2.ctrl.hs_in));
 
-    printf("CGMS: enable=%s header=0x%02X payload=%u\n",
-           boolstr(r->cgms.enable), r->cgms.header, r->cgms.payload);
+    printf("CGMS: header=0x%02X payload=%u\n",
+           r->cgms.header, r->cgms.payload);
 
     printf("Readback: ppl=%u lpf=%u\n",
            r->readback.ppl, r->readback.lpf);
